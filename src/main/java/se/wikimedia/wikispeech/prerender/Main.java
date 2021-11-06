@@ -17,7 +17,7 @@ public class Main {
     private Logger log = LogManager.getLogger();
 
     public void run() throws Exception {
-        RenderQueue.getInstance().setNumberOfWorkerThreads(10);
+        RenderQueue.getInstance().setNumberOfWorkerThreads(1);
 
         RemoteSite[] remoteSites = new RemoteSite[]{
                 new SwedishWikipedia(),
