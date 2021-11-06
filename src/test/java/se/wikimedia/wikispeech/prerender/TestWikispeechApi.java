@@ -12,10 +12,11 @@ public class TestWikispeechApi {
         String consumerUrl = SwedishWikipedia.CONSUMER_URL_SV_WIKIPEDIA;
         WikispeechApi api = new WikispeechApi();
         api.open();
+        String title = "Barack Obama";
         List<WikispeechApi.Segment> segments = api.segment(consumerUrl, "Barack Obama");
-        long currentRevision = api.getCurrentRevision(consumerUrl, "Barack Obama");
+        long currentRevision = api.getCurrentRevision(consumerUrl, title);
         for (WikispeechApi.Segment segment : segments) {
-            WikispeechApi.ListenResponse response = api.listen(consumerUrl, segment.getHash(), currentRevision, "sv");
+            WikispeechApi.ListenResponseEnvelope response = api.listen(consumerUrl, title, segment.getHash(), currentRevision, "sv");
             System.currentTimeMillis();
         }
         System.currentTimeMillis();

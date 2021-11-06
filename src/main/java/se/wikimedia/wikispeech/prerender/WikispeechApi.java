@@ -1,10 +1,10 @@
 package se.wikimedia.wikispeech.prerender;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
+import lombok.Getter;
 import okhttp3.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
@@ -13,7 +13,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class WikispeechApi {
@@ -96,7 +98,56 @@ public class WikispeechApi {
         return page.get("lastrevid").longValue();
     }
 
-    public ListenResponse listen(String consumerUrl, String segmentHash, long revision, String lang) throws IOException {
+    public static class MWException extends IOException {
+
+        @Getter
+        private JsonNode error;
+
+        public MWException(JsonNode error) {
+            this.error = error;
+        }
+
+        public String getExceptionClass() {
+            return error.get("error").get("errorclass").textValue();
+        }
+    }
+
+    private Map<String, Map<String, Long>> mostRecentRevisionSeenCache = new HashMap<>();
+
+    private long getGreatestRevisionKnown(String consumerUrl, String title, long knownRevision) {
+        Map<String, Long> revisionsByTitle = mostRecentRevisionSeenCache.computeIfAbsent(consumerUrl, k -> new HashMap<>());
+        Long revision = revisionsByTitle.get(title);
+        if (revision == null) {
+            revisionsByTitle.put(title, knownRevision);
+            return knownRevision;
+        }
+        return revision;
+    }
+
+    private void setGreatestRevisionKnown(String consumerUrl, String title, long revision) {
+        mostRecentRevisionSeenCache.computeIfAbsent(consumerUrl, k -> new HashMap<>()).put(title, revision);
+    }
+
+    public ListenResponseEnvelope listen(String consumerUrl, String title, String segmentHash, long lastKnownRevision, String lang) throws IOException {
+        ListenResponseEnvelope envelope = new ListenResponseEnvelope();
+        long greatestRevisionKnown = getGreatestRevisionKnown(consumerUrl, title, lastKnownRevision);
+        try {
+            envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, lang));
+            envelope.setRevision(lastKnownRevision);
+        } catch (MWException mwException) {
+            if ("MediaWiki\\Wikispeech\\Segment\\OutdatedOrInvalidRevisionException".equals(mwException.getExceptionClass())) {
+                greatestRevisionKnown = getCurrentRevision(consumerUrl, title);
+                setGreatestRevisionKnown(consumerUrl, title, greatestRevisionKnown);
+                envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, lang));
+                envelope.setRevision(greatestRevisionKnown);
+            } else {
+                throw mwException;
+            }
+        }
+        return envelope;
+    }
+
+    private ListenResponse doListen(String consumerUrl, String segmentHash, long revision, String lang) throws IOException {
         HttpUrl.Builder urlBuilder = HttpUrl.parse(wikispeechBaseUrl + "/api.php").newBuilder();
         urlBuilder.addQueryParameter("action", "wikispeech-listen");
         urlBuilder.addQueryParameter("consumer-url", consumerUrl);
@@ -122,7 +173,10 @@ public class WikispeechApi {
         try {
             JsonNode json = objectMapper.readTree(baos.toByteArray());
             if (json.has("error")) {
-                throw new RuntimeException("Wikispeech responded with an error!" + objectMapper.writeValueAsString(json));
+                if (json.get("error").has("errorclass")) {
+                    throw new MWException(json);
+                }
+                throw new IOException("Wikispeech responded with an error!" + objectMapper.writeValueAsString(json));
             }
             ListenResponse listenResponse = objectMapper.convertValue(json.get("wikispeech-listen"), ListenResponse.class);
             if (listenResponse == null) {
@@ -133,6 +187,12 @@ public class WikispeechApi {
             log.error("Failed processing response: {}", new String(baos.toByteArray()), exception);
             throw exception;
         }
+    }
+
+    @Data
+    public static class ListenResponseEnvelope {
+        private ListenResponse response;
+        private long revision;
     }
 
     @Data

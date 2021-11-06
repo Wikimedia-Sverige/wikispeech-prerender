@@ -60,10 +60,11 @@ public class RenderQueue {
                                 item = Prevalence.getInstance().execute(new PollRenderQueue());
                                 if (item != null) {
                                     log.debug("Rendering segment from {}/{} with hash {}", item.getRemoteSiteConsumerUrl(), item.getPageTitle(), Hex.encodeHexString(item.getSegmentHash()));
-                                    WikispeechApi.ListenResponse listenResponse = null;
+                                    WikispeechApi.ListenResponseEnvelope listenResponse = null;
                                     try {
                                         listenResponse = wikispeech.listen(
                                                 item.getRemoteSiteConsumerUrl(),
+                                                item.getPageTitle(),
                                                 Hex.encodeHexString(item.getSegmentHash()),
                                                 item.getPageRevision(),
                                                 item.getLanguage()
@@ -79,7 +80,16 @@ public class RenderQueue {
                                                 item.getVoice()
                                         ));
                                     } catch (Exception exception) {
-                                        log.error("Failed to render {}", item, exception);
+                                        WikispeechApi.Segment problematicSegment = null;
+                                        List<WikispeechApi.Segment> segments = wikispeech.segment(item.getRemoteSiteConsumerUrl(), item.getPageTitle());
+                                        for (WikispeechApi.Segment segment : segments) {
+                                            if (Hex.encodeHexString(item.getSegmentHash()).equals(segment.getHash())) {
+                                                problematicSegment = segment;
+                                                break;
+                                            }
+                                        }
+                                        log.error("Failed to render {} based on {}", item, problematicSegment, exception);
+                                        System.currentTimeMillis();
                                         continue;
                                     }
                                     if (listenResponse != null) {
@@ -137,15 +147,15 @@ public class RenderQueue {
             if (!segment.getHash().equals(Hex.encodeHexString(Hex.decodeHex(segment.getHash())))) {
                 System.currentTimeMillis();
             }
-            Segment renderedSegment = Prevalence.getInstance().execute(new FindRenderedSegment(
+            Segment existingRenderedSegment = Prevalence.getInstance().execute(new FindRenderedSegment(
                     consumerUrl,
                     title,
                     Hex.decodeHex(segment.getHash()),
                     language,
                     voice
             ));
-            if (renderedSegment != null) {
-                if (renderedSegment.getTimestampRendered().isAfter(existingMustBeRenderedBefore)) {
+            if (existingRenderedSegment != null) {
+                if (existingRenderedSegment.getTimestampRendered().isAfter(existingMustBeRenderedBefore)) {
                     continue;
                 }
             }

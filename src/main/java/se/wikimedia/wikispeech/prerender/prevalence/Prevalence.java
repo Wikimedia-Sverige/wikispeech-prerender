@@ -1,5 +1,7 @@
 package se.wikimedia.wikispeech.prerender.prevalence;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.prevayler.Prevayler;
 import org.prevayler.PrevaylerFactory;
 import org.prevayler.Query;
@@ -24,11 +26,15 @@ public class Prevalence {
     private Prevalence() {
     }
 
+    private Logger log = LogManager.getLogger();
+
     private Prevayler<Root> prevalyer;
 
     public void open() throws Exception {
+        log.info("Setting up prevalence...");
         File prevalenceBase = new File("./prevalence");
         prevalyer = PrevaylerFactory.createPrevayler(new Root(), prevalenceBase.getAbsolutePath());
+        log.info("Prevalence as been started.");
     }
 
     public void close() throws IOException {

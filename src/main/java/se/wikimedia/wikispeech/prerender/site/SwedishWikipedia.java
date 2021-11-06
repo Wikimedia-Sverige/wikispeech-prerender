@@ -36,7 +36,7 @@ public class SwedishWikipedia extends RemoteSite {
         collector.collect("Portal:Huvudsida", LocalDateTime.now());
         try {
             new MainPageParser("//DIV[@class='frontPageLeft']").collect(collector, "https://sv.wikipedia.org/wiki/Portal:Huvudsida");
-            new SpecialPagesWithMostVersionsParser().collect(collector, "https://sv.wikipedia.org/w/index.php?title=Special:Flest_versioner&limit=5000&offset=0");
+//            new SpecialPagesWithMostVersionsParser().collect(collector, "https://sv.wikipedia.org/w/index.php?title=Special:Flest_versioner&limit=5000&offset=0");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

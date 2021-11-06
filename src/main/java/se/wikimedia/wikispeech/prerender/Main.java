@@ -7,9 +7,6 @@ import se.wikimedia.wikispeech.prerender.prevalence.query.PeekRenderQueue;
 import se.wikimedia.wikispeech.prerender.site.EnglishWikipedia;
 import se.wikimedia.wikispeech.prerender.site.RemoteSite;
 import se.wikimedia.wikispeech.prerender.site.SwedishWikipedia;
-import se.wikimedia.wikispeech.prerender.site.TitleCollector;
-
-import java.time.LocalDateTime;
 
 public class Main {
 
@@ -20,11 +17,11 @@ public class Main {
     private Logger log = LogManager.getLogger();
 
     public void run() throws Exception {
-        RenderQueue.getInstance().setNumberOfWorkerThreads(1);
+        RenderQueue.getInstance().setNumberOfWorkerThreads(10);
 
         RemoteSite[] remoteSites = new RemoteSite[]{
-//                new EnglishWikipedia(),
-                new SwedishWikipedia()
+                new SwedishWikipedia(),
+                new EnglishWikipedia(),
         };
 
         Prevalence.getInstance().open();
