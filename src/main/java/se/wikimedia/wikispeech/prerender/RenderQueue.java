@@ -81,12 +81,16 @@ public class RenderQueue {
                                         ));
                                     } catch (Exception exception) {
                                         WikispeechApi.Segment problematicSegment = null;
-                                        List<WikispeechApi.Segment> segments = wikispeech.segment(item.getRemoteSiteConsumerUrl(), item.getPageTitle());
-                                        for (WikispeechApi.Segment segment : segments) {
-                                            if (Hex.encodeHexString(item.getSegmentHash()).equals(segment.getHash())) {
-                                                problematicSegment = segment;
-                                                break;
+                                        try {
+                                            List<WikispeechApi.Segment> segments = wikispeech.segment(item.getRemoteSiteConsumerUrl(), item.getPageTitle());
+                                            for (WikispeechApi.Segment segment : segments) {
+                                                if (Hex.encodeHexString(item.getSegmentHash()).equals(segment.getHash())) {
+                                                    problematicSegment = segment;
+                                                    break;
+                                                }
                                             }
+                                        } catch (Exception e) {
+                                            log.debug("Failed finding problematic segment", e);
                                         }
                                         log.error("Failed to render {} based on {}", item, problematicSegment, exception);
                                         System.currentTimeMillis();
@@ -110,7 +114,7 @@ public class RenderQueue {
                                 Thread.sleep(1000);
                             }
                         } catch (Exception e) {
-                            log.fatal("Fatal exception! Thread will stop!", e);
+                            log.fatal("Fatal exception, thread stops!", e);
                             break;
                         }
                     }
