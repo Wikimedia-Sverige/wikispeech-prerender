@@ -144,7 +144,9 @@ public class CommandQueue {
                 SegmentedPage segmentedPage = Prevalence.getInstance().execute(new FindSegmentedPage(command.getConsumerUrl(), command.getTitle()));
                 if (segmentedPage != null
                         && segmentedPage.getLastSegmentedRevision() != null
-                        && segmentedPage.getLastSegmentedRevision() == currentRevision) {
+                        && segmentedPage.getLastSegmentedRevision() == currentRevision
+                        // todo check age? if too long ago, try again. perhaps the speech synthesis was updated.
+                ) {
                     return null;
                     // no need
                 }
@@ -152,7 +154,7 @@ public class CommandQueue {
                     @Override
                     public void collect(WikispeechApi.Segment segment) {
                         try {
-                            // segment might have previously been synthesized with a greater revision than the revision we asked for when adding it to the queue.
+                            // segment might have previously been synthesized
                             SynthesizedSegment synthesizedSegment = Prevalence.getInstance().execute(
                                     new FindSynthesizedSegment(
                                             command.getConsumerUrl(),
@@ -162,8 +164,8 @@ public class CommandQueue {
                                             command.getVoice()
                                     )
                             );
-                            if (synthesizedSegment != null
-                                    && currentRevision <= synthesizedSegment.getRevision()) {
+                            if (synthesizedSegment != null) {
+                                // todo check age? if too long ago, try again. perhaps the speech synthesis was updated.
                                 // No need
                                 return;
                             }
@@ -211,7 +213,8 @@ public class CommandQueue {
                 );
 
                 if (synthesizedSegment != null
-                        && synthesizedSegment.getRevision() >= command.getCurrentRevisionAtSegmentation()) {
+                    // todo check age? if too long ago, try again. perhaps the speech synthesis was updated.
+                ) {
                     // no need
                     return null;
                 }
