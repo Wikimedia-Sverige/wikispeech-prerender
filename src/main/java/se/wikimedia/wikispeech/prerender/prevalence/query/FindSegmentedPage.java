@@ -2,9 +2,9 @@ package se.wikimedia.wikispeech.prerender.prevalence.query;
 
 import lombok.Data;
 import org.prevayler.Query;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.RemoteSite;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.RemoteSite;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SegmentedPage;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SegmentedPage;
 
 import java.util.Date;
 

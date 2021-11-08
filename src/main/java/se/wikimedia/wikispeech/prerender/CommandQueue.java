@@ -5,15 +5,16 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SegmentedPage;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SynthesizedSegment;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SegmentedPage;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SynthesizedSegment;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.*;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SynthesizedVoice;
 import se.wikimedia.wikispeech.prerender.prevalence.query.FindSegmentedPage;
-import se.wikimedia.wikispeech.prerender.prevalence.query.FindSynthesizedSegment;
+import se.wikimedia.wikispeech.prerender.prevalence.query.FindSynthesizedVoice;
 import se.wikimedia.wikispeech.prerender.prevalence.query.command.PeekCommandQueue;
 import se.wikimedia.wikispeech.prerender.prevalence.query.command.PeekSynthesizeSegmentCommandQueue;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.SetPageLastSegmented;
-import se.wikimedia.wikispeech.prerender.prevalence.transaction.SetSynthesizedSegment;
+import se.wikimedia.wikispeech.prerender.prevalence.transaction.SetSynthesizedVoice;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PollCommandQueue;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PollSynthesizeSegmentCommandQueue;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushSegmentPageAndQueueForSynthesis;
@@ -155,8 +156,8 @@ public class CommandQueue {
                     public void collect(WikispeechApi.Segment segment) {
                         try {
                             // segment might have previously been synthesized
-                            SynthesizedSegment synthesizedSegment = Prevalence.getInstance().execute(
-                                    new FindSynthesizedSegment(
+                            SynthesizedVoice synthesizedVoice = Prevalence.getInstance().execute(
+                                    new FindSynthesizedVoice(
                                             command.getConsumerUrl(),
                                             command.getTitle(),
                                             Hex.decodeHex(segment.getHash()),
@@ -164,7 +165,7 @@ public class CommandQueue {
                                             command.getVoice()
                                     )
                             );
-                            if (synthesizedSegment != null) {
+                            if (synthesizedVoice != null) {
                                 // todo check age? if too long ago, try again. perhaps the speech synthesis was updated.
                                 // No need
                                 return;
@@ -202,8 +203,8 @@ public class CommandQueue {
         @Override
         public Void visit(SynthesizeSegment command) {
             try {
-                SynthesizedSegment synthesizedSegment = Prevalence.getInstance().execute(
-                        new FindSynthesizedSegment(
+                SynthesizedVoice synthesizedVoice = Prevalence.getInstance().execute(
+                        new FindSynthesizedVoice(
                                 command.getConsumerUrl(),
                                 command.getTitle(),
                                 command.getHash(),
@@ -212,7 +213,7 @@ public class CommandQueue {
                         )
                 );
 
-                if (synthesizedSegment != null
+                if (synthesizedVoice != null
                     // todo check age? if too long ago, try again. perhaps the speech synthesis was updated.
                 ) {
                     // no need
@@ -230,7 +231,7 @@ public class CommandQueue {
                             command.getLanguage()
                     );
                     Prevalence.getInstance().execute(
-                            new SetSynthesizedSegment(
+                            new SetSynthesizedVoice(
                                     command.getConsumerUrl(),
                                     command.getTitle(),
                                     command.getHash(),
@@ -243,7 +244,8 @@ public class CommandQueue {
                     log.warn("Timeout while rendering. Requeuing {}", command, timeoutException);
                     Prevalence.getInstance().execute(PushSynthesizeSegmentToCommandQueue.factory(command));
                 } catch (Exception exception) {
-                    log.error("Failed to process {}", command, exception);
+                    log.error("Failed to process, requeuing {}", command, exception);
+                    Prevalence.getInstance().execute(PushSynthesizeSegmentToCommandQueue.factory(command));
                 }
             } catch (Exception e) {
                 log.error("Failed to process {}", command, e);

@@ -3,6 +3,7 @@ package se.wikimedia.wikispeech.prerender.prevalence.domain;
 import lombok.Data;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.Command;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.SynthesizeSegment;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.RemoteSite;
 
 import java.io.Serializable;
 import java.util.HashMap;

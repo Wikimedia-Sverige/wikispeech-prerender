@@ -3,8 +3,8 @@ package se.wikimedia.wikispeech.prerender.prevalence.transaction;
 import lombok.Data;
 import org.prevayler.TransactionWithQuery;
 import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SegmentedPage;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.RemoteSite;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SegmentedPage;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.RemoteSite;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.Root;
 
 import java.util.Date;

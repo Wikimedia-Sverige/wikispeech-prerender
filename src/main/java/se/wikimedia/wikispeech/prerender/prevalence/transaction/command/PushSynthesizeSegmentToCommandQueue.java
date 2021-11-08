@@ -4,7 +4,6 @@ import lombok.Data;
 import org.prevayler.TransactionWithQuery;
 import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SynthesizedSegment;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.SynthesizeSegment;
 
 import java.time.LocalDateTime;

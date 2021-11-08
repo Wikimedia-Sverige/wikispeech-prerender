@@ -1,4 +1,4 @@
-package se.wikimedia.wikispeech.prerender.prevalence.domain;
+package se.wikimedia.wikispeech.prerender.prevalence.domain.state;
 
 import lombok.Data;
 

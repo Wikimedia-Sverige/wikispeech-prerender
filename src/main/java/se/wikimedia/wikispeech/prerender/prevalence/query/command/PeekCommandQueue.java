@@ -1,7 +1,6 @@
 package se.wikimedia.wikispeech.prerender.prevalence.query.command;
 
 import org.prevayler.Query;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.RenderQueueItem;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.Command;
 

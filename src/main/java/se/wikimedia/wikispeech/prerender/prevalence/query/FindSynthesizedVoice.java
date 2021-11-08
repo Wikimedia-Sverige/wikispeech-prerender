@@ -2,16 +2,17 @@ package se.wikimedia.wikispeech.prerender.prevalence.query;
 
 import lombok.Data;
 import org.prevayler.Query;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SegmentedPage;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.RemoteSite;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.prevalence.domain.SynthesizedSegment;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.RemoteSite;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SegmentedPage;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SynthesizedSegment;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.state.SynthesizedVoice;
 
 import java.util.Arrays;
 import java.util.Date;
 
 @Data
-public class FindSynthesizedSegment implements Query<Root, SynthesizedSegment> {
+public class FindSynthesizedVoice implements Query<Root, SynthesizedVoice> {
 
     private String consumerUrl;
     private String title;
@@ -20,7 +21,7 @@ public class FindSynthesizedSegment implements Query<Root, SynthesizedSegment> {
     private String voice;
 
 
-    public FindSynthesizedSegment(String remoteSiteConsumerUrl, String pageTitle, byte[] segmentHash, String language, String voice) {
+    public FindSynthesizedVoice(String remoteSiteConsumerUrl, String pageTitle, byte[] segmentHash, String language, String voice) {
         this.consumerUrl = remoteSiteConsumerUrl;
         this.title = pageTitle;
         this.hash = segmentHash;
@@ -29,7 +30,7 @@ public class FindSynthesizedSegment implements Query<Root, SynthesizedSegment> {
     }
 
     @Override
-    public SynthesizedSegment query(Root root, Date date) throws Exception {
+    public SynthesizedVoice query(Root root, Date date) throws Exception {
         RemoteSite remoteSite = root.getRemoteSiteByConsumerUrl().get(consumerUrl);
         if (remoteSite != null) {
             SegmentedPage segmentedPage = remoteSite.getPagesByTitle().get(title);
@@ -37,9 +38,13 @@ public class FindSynthesizedSegment implements Query<Root, SynthesizedSegment> {
                 for (SynthesizedSegment synthesizedSegment : segmentedPage.getRenderedSynthesizedSegments()) {
                     if (Arrays.equals(hash, synthesizedSegment.getHash())
                             && language.equals(synthesizedSegment.getLanguage())
-                            && ((voice == null && synthesizedSegment.getVoice() == null) || (voice != null && voice.equals(synthesizedSegment.getVoice())))
                     ) {
-                        return synthesizedSegment;
+                        for (SynthesizedVoice synthesizedVoice : synthesizedSegment.getSynthesizedVoices()) {
+                            if ((voice == null && synthesizedVoice.getVoice() == null) || (voice != null && voice.equals(synthesizedVoice.getVoice()))) {
+                                return synthesizedVoice;
+                            }
+                        }
+                        return null;
                     }
                 }
             }
