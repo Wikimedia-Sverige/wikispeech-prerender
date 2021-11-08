@@ -7,6 +7,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import se.wikimedia.wikispeech.prerender.Collector;
 
 import javax.xml.xpath.*;
 import java.io.IOException;
@@ -16,8 +17,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SpecialPagesWithMostVersionsParser {
-
-    private Duration previousMustHaveBeenRenderedBefore = Duration.ofDays(30);
 
     private XPathExpression entriesExpression;
     private XPathExpression entryHrefExpression;
@@ -33,19 +32,19 @@ public class SpecialPagesWithMostVersionsParser {
         entryVersionsCountExpression = xPath.compile("A[2]/text()");
     }
 
-    public void collect(TitleCollector collector, String url) throws XPathExpressionException, IOException, SAXException {
+    public void collect(Collector<String> collector, String url) throws XPathExpressionException, IOException, SAXException {
         DOMParser parser = new DOMParser();
         parser.parse(url);
         collect(collector, parser.getDocument());
     }
 
-    public void collect(TitleCollector collector, InputSource html) throws XPathExpressionException, IOException, SAXException {
+    public void collect(Collector<String> collector, InputSource html) throws XPathExpressionException, IOException, SAXException {
         DOMParser parser = new DOMParser();
         parser.parse(html);
         collect(collector, parser.getDocument());
     }
 
-    public void collect(TitleCollector collector, Document document) throws XPathExpressionException {
+    public void collect(Collector<String> collector, Document document) throws XPathExpressionException {
         NodeList entryNodes = (NodeList) entriesExpression.evaluate(document, XPathConstants.NODESET);
         for (int entryNodesIndex = 0; entryNodesIndex < entryNodes.getLength(); entryNodesIndex++) {
             Node entryNode = entryNodes.item(entryNodesIndex);
@@ -59,7 +58,7 @@ public class SpecialPagesWithMostVersionsParser {
                 throw new RuntimeException();
             }
             entry.setVersionsCount(Integer.parseInt(versionsCountMatcher.group(1).replaceAll("\\s+", "")));
-            collector.collect(entry.getTitle(), LocalDateTime.now().minus(previousMustHaveBeenRenderedBefore));
+            collector.collect(entry.getTitle());
         }
     }
 

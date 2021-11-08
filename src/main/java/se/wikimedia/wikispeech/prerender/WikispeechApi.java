@@ -1,8 +1,8 @@
 package se.wikimedia.wikispeech.prerender;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.Data;
 import lombok.Getter;
 import okhttp3.*;
@@ -50,7 +50,7 @@ public class WikispeechApi {
 
     }
 
-    public List<Segment> segment(String consumerUrl, String page) throws IOException {
+    public void segment(String consumerUrl, String page, Collector<Segment> collector) throws IOException {
         HttpUrl.Builder urlBuilder = HttpUrl.parse(wikispeechBaseUrl + "/api.php").newBuilder();
         urlBuilder.addQueryParameter("action", "wikispeech-segment");
         urlBuilder.addQueryParameter("consumer-url", consumerUrl);
@@ -69,8 +69,11 @@ public class WikispeechApi {
         }
 
         JsonNode json = objectMapper.readTree(response.body().byteStream());
-        return objectMapper.convertValue(json.get("wikispeech-segment").get("segments"), new TypeReference<List<Segment>>() {
-        });
+        ArrayNode segmentsJson = objectMapper.convertValue(json.get("wikispeech-segment").get("segments"), ArrayNode.class);
+        for (int i = 0; i < segmentsJson.size(); i++) {
+            collector.collect(objectMapper.convertValue(segmentsJson.get(i), Segment.class));
+        }
+
     }
 
     public long getCurrentRevision(String consumerUrl, String title) throws IOException {

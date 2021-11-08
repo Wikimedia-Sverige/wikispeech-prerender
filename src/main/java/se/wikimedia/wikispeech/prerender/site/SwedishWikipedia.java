@@ -1,5 +1,9 @@
 package se.wikimedia.wikispeech.prerender.site;
 
+import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
+import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation;
+import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushSegmentPageAndQueueForSynthesis;
+
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -32,13 +36,32 @@ public class SwedishWikipedia extends RemoteSite {
     }
 
     @Override
-    public void collectTitles(TitleCollector collector) {
-        collector.collect("Portal:Huvudsida", LocalDateTime.now());
-        try {
-            new MainPageParser("//DIV[@class='frontPageLeft']").collect(collector, "https://sv.wikipedia.org/wiki/Portal:Huvudsida");
-//            new SpecialPagesWithMostVersionsParser().collect(collector, "https://sv.wikipedia.org/w/index.php?title=Special:Flest_versioner&limit=5000&offset=0");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    public void queueCommands() throws Exception {
+        // synthesize main page.
+        for (String voice : getVoices()) {
+            Prevalence.getInstance().execute(
+                    PushSegmentPageAndQueueForSynthesis.factory(
+                            getConsumerUrl(),
+                            "Portal:Huvudsida",
+                            getLanguage(),
+                            voice
+                    )
+            );
+        }
+
+        // scrape main page content for wiki links and synthesize those.
+        for (String voice : getVoices()) {
+            Prevalence.getInstance().execute(
+                    PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation.factory(
+                            getConsumerUrl(),
+                            "Portal:Huvudsida",
+                            getLanguage(),
+                            voice,
+                            "//DIV[@class='frontPageLeft']//A[starts-with(@href, '/wiki/')]",
+                            "/wiki/[^:]+"
+                    )
+            );
         }
     }
+
 }

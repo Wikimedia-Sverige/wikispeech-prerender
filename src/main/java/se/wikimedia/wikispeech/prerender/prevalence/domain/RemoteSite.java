@@ -12,6 +12,6 @@ public class RemoteSite implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String consumerUrl;
-    private Map<String, Page> pagesByTitle = new HashMap<>();
+    private Map<String, SegmentedPage> pagesByTitle = new HashMap<>();
 
 }

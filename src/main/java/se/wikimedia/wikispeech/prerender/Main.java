@@ -3,10 +3,13 @@ package se.wikimedia.wikispeech.prerender;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
-import se.wikimedia.wikispeech.prerender.prevalence.query.PeekRenderQueue;
+import se.wikimedia.wikispeech.prerender.prevalence.query.command.PeekCommandQueue;
+import se.wikimedia.wikispeech.prerender.prevalence.query.command.PeekSynthesizeSegmentCommandQueue;
 import se.wikimedia.wikispeech.prerender.site.EnglishWikipedia;
 import se.wikimedia.wikispeech.prerender.site.RemoteSite;
 import se.wikimedia.wikispeech.prerender.site.SwedishWikipedia;
+
+import java.time.Duration;
 
 public class Main {
 
@@ -17,46 +20,37 @@ public class Main {
     private Logger log = LogManager.getLogger();
 
     public void run() throws Exception {
-        RenderQueue.getInstance().setNumberOfWorkerThreads(1);
+        CommandQueue.getInstance().setNumberOfWorkerThreads(10);
+        CommandQueue.getInstance().setNumberOfSynthesizeWorkerThreads(2);
 
         RemoteSite[] remoteSites = new RemoteSite[]{
                 new SwedishWikipedia(),
-                new EnglishWikipedia(),
+//                new EnglishWikipedia(),
         };
 
         Prevalence.getInstance().open();
-        RenderQueue.getInstance().start();
+        CommandQueue.getInstance().start();
 
         try {
-            while (true) {
-                while (Prevalence.getInstance().execute(new PeekRenderQueue()) != null) {
-                    Thread.sleep(1000);
+            if (Prevalence.getInstance().execute(new PeekCommandQueue()) == null
+                    && Prevalence.getInstance().execute(new PeekSynthesizeSegmentCommandQueue()) == null) {
+                for (RemoteSite remoteSite : remoteSites) {
+                    remoteSite.queueCommands();
                 }
-                log.info("Queue is empty.");
-                // todo consider waiting for a while before repopulating.
-                Thread.sleep(1);
-                populate(remoteSites);
             }
+
+            while (Prevalence.getInstance().execute(new PeekCommandQueue()) != null
+                    || Prevalence.getInstance().execute(new PeekSynthesizeSegmentCommandQueue()) != null) {
+                Thread.sleep(Duration.ofMinutes(1).toMillis());
+            }
+
+            log.info("Queue is empty.");
+
         } finally {
-            RenderQueue.getInstance().stop();
+            CommandQueue.getInstance().stop();
             Prevalence.getInstance().close();
         }
     }
 
-    private void populate(RemoteSite[] remoteSites) {
-        for (RemoteSite remoteSite : remoteSites) {
-            log.info("Collecting titles from {}...", remoteSite.getName());
-            remoteSite.collectTitles((title, previousMustHaveBeenRenderedBefore) -> {
-                for (String voice : remoteSite.getVoices()) {
-                    try {
-                        RenderQueue.getInstance().queuePage(remoteSite.getConsumerUrl(), title, remoteSite.getLanguage(), voice, previousMustHaveBeenRenderedBefore);
-                    } catch (Exception e) {
-                        log.error("Failed to queue title {} from {}", title, remoteSite.getName());
-                    }
-                }
-            });
-        }
-        log.info("Populated data from all remote sites.");
-    }
 
 }

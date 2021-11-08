@@ -42,10 +42,16 @@ public class Prevalence {
     }
 
     public <R> R execute(TransactionWithQuery<Root, R> transaction) throws Exception {
+//        if (log.isDebugEnabled()) {
+//            log.debug("Executing transaction {}", transaction);
+//        }
         return prevalyer.execute(transaction);
     }
 
     public <R> R execute(Query<Root, R> query) throws Exception {
+//        if (log.isTraceEnabled()) {
+//            log.trace("Executing query {}", query);
+//        }
         return prevalyer.execute(query);
     }
 

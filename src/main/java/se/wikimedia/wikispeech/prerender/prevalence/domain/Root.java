@@ -1,6 +1,8 @@
 package se.wikimedia.wikispeech.prerender.prevalence.domain;
 
 import lombok.Data;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.command.Command;
+import se.wikimedia.wikispeech.prerender.prevalence.domain.command.SynthesizeSegment;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -14,7 +16,8 @@ public class Root implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Map<String, RemoteSite> remoteSiteByConsumerUrl = new HashMap<>();
-    private Queue<RenderQueueItem> renderQueue = new LinkedList<>();
 
+    private Queue<Command> commandQueue = new LinkedList<>();
+    private Queue<SynthesizeSegment> synthesizeSegmentsQueue = new LinkedList<>();
 
 }

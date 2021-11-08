@@ -12,6 +12,6 @@ public abstract class RemoteSite {
 
     public abstract List<String> getVoices();
 
-    public abstract void collectTitles(TitleCollector collector);
+    public abstract void queueCommands() throws Exception;
 
 }

@@ -1,12 +1,13 @@
 package se.wikimedia.wikispeech.prerender.site;
 
+import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
+import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation;
+import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushSegmentPageAndQueueForSynthesis;
+
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Gathers the titles of the 5000 most edited pages.
- */
 public class EnglishWikipedia extends RemoteSite {
 
     public static final String CONSUMER_URL_EN_WIKIPEDIA = "https://en.wikipedia.org/w";
@@ -32,13 +33,32 @@ public class EnglishWikipedia extends RemoteSite {
     }
 
     @Override
-    public void collectTitles(TitleCollector collector) {
-        collector.collect("Main_Page", LocalDateTime.now());
-        try {
-            new MainPageParser("//TABLE[@id='mp-upper']").collect(collector, "https://en.wikipedia.org/wiki/Main_Page");
-            // todo top 25
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    public void queueCommands() throws Exception {
+
+        // synthesize main page.
+        for (String voice : getVoices()) {
+            Prevalence.getInstance().execute(
+                    PushSegmentPageAndQueueForSynthesis.factory(
+                            getConsumerUrl(),
+                            "Main_Page",
+                            getLanguage(),
+                            voice
+                    )
+            );
+        }
+
+        // scrape main page content for wiki links and synthesize those.
+        for (String voice : getVoices()) {
+            Prevalence.getInstance().execute(
+                    PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation.factory(
+                            getConsumerUrl(),
+                            "Main_Page",
+                            getLanguage(),
+                            voice,
+                            "//*[@id='mp-upper']//A[starts-with(@href, '/wiki/')]",
+                            "/wiki/[^:]+"
+                    )
+            );
         }
     }
 }
