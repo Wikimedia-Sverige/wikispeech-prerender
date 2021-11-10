@@ -4,7 +4,6 @@ import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushSegmentPageAndQueueForSynthesis;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -35,33 +34,63 @@ public class SwedishWikipedia extends RemoteSite {
         return CONSUMER_URL_SV_WIKIPEDIA;
     }
 
+    private RecentChangesPoller recentChangesPoller;
+
+    @Override
+    public void start() {
+        recentChangesPoller = new RecentChangesPoller(this);
+        recentChangesPoller.start();
+    }
+
+    @Override
+    public void stop() {
+        recentChangesPoller.stop();
+    }
+
     @Override
     public void queueCommands() throws Exception {
+
+//        Prevalence.getInstance().execute(
+//                PushCrawlSite.factory(
+//                        getConsumerUrl(),
+//                        "Portal:Huvudsida",
+//                        5,
+//                        getLanguage(),
+//                        getVoices(),
+//                        "//DIV[@id='bodyContent']//A[starts-with(@href, '/wiki/')]",
+//                        "/wiki/[^:]+"
+//                )
+//        );
+//
+//
+//        if (true) {
+//            return;
+//        }
+//
+
         // synthesize main page.
-        for (String voice : getVoices()) {
-            Prevalence.getInstance().execute(
-                    PushSegmentPageAndQueueForSynthesis.factory(
-                            getConsumerUrl(),
-                            "Portal:Huvudsida",
-                            getLanguage(),
-                            voice
-                    )
-            );
-        }
+        Prevalence.getInstance().execute(
+                PushSegmentPageAndQueueForSynthesis.factory(
+                        getConsumerUrl(),
+                        "Portal:Huvudsida",
+                        getLanguage(),
+                        getVoices()
+                )
+        );
+
 
         // scrape main page content for wiki links and synthesize those.
-        for (String voice : getVoices()) {
-            Prevalence.getInstance().execute(
-                    PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation.factory(
-                            getConsumerUrl(),
-                            "Portal:Huvudsida",
-                            getLanguage(),
-                            voice,
-                            "//DIV[@class='frontPageLeft']//A[starts-with(@href, '/wiki/')]",
-                            "/wiki/[^:]+"
-                    )
-            );
-        }
+        Prevalence.getInstance().execute(
+                PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation.factory(
+                        getConsumerUrl(),
+                        "Portal:Huvudsida",
+                        getLanguage(),
+                        getVoices(),
+                        "//DIV[@class='frontPageLeft']//A[starts-with(@href, '/wiki/')]",
+                        "/wiki/[^:]+"
+                )
+        );
+
     }
 
 }

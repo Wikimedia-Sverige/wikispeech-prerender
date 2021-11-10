@@ -2,6 +2,8 @@ package se.wikimedia.wikispeech.prerender.prevalence.domain.command;
 
 import lombok.Data;
 
+import java.util.Collection;
+
 @Data
 public class SegmentPageAndQueueForSynthesis extends Command {
 
@@ -11,7 +13,7 @@ public class SegmentPageAndQueueForSynthesis extends Command {
     private String title;
 
     private String language;
-    private String voice;
+    private Collection<String> voices;
 
     @Override
     public <R> R accept(CommandVisitor<R> visitor) {

@@ -4,6 +4,7 @@ import lombok.Data;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.SegmentPageAndQueueForSynthesis;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 
 @Data
 public class PushSegmentPageAndQueueForSynthesis extends PushToCommandQueue<SegmentPageAndQueueForSynthesis> {
@@ -14,7 +15,7 @@ public class PushSegmentPageAndQueueForSynthesis extends PushToCommandQueue<Segm
     private String title;
 
     private String language;
-    private String voice;
+    private Collection<String> voices;
 
 
     @Override
@@ -24,16 +25,16 @@ public class PushSegmentPageAndQueueForSynthesis extends PushToCommandQueue<Segm
         command.setConsumerUrl(this.consumerUrl);
         command.setTitle(this.title);
         command.setLanguage(this.language);
-        command.setVoice(this.voice);
+        command.setVoices(this.voices);
         return command;
     }
 
-    public static PushSegmentPageAndQueueForSynthesis factory(String consumerUrl, String title, String language, String voice) {
+    public static PushSegmentPageAndQueueForSynthesis factory(String consumerUrl, String title, String language, Collection<String> voices) {
         PushSegmentPageAndQueueForSynthesis push = new PushSegmentPageAndQueueForSynthesis();
         push.setConsumerUrl(consumerUrl);
         push.setTitle(title);
         push.setLanguage(language);
-        push.setVoice(voice);
+        push.setVoices(voices);
         return push;
     }
 }

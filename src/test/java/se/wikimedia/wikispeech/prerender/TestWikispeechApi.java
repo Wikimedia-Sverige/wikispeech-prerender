@@ -1,6 +1,7 @@
 package se.wikimedia.wikispeech.prerender;
 
 import org.junit.Test;
+import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.site.SwedishWikipedia;
 
 import java.util.ArrayList;

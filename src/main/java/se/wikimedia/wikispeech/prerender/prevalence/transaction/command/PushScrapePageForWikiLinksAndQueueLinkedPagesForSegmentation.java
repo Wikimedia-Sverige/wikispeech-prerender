@@ -4,6 +4,7 @@ import lombok.Data;
 import se.wikimedia.wikispeech.prerender.prevalence.domain.command.ScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 
 @Data
 public class PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation extends PushToCommandQueue<ScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation> {
@@ -14,7 +15,7 @@ public class PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation extend
     private String title;
 
     private String language;
-    private String voice;
+    private Collection<String> voices;
 
     private String linksExpression = "//*[@id='bodyContent']//A[starts-with(@href, '/wiki/')]";
     private String allowedHrefPattern = "/wiki/[^:]+";
@@ -28,7 +29,7 @@ public class PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation extend
         command.setLinksExpression(this.linksExpression);
         command.setAllowedHrefPattern(this.allowedHrefPattern);
         command.setLanguage(this.language);
-        command.setVoice(this.voice);
+        command.setVoices(this.voices);
         return command;
     }
 
@@ -37,7 +38,7 @@ public class PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation extend
              String title,
 
              String language,
-             String voice,
+             Collection<String> voices,
 
              String linksExpression,
              String allowedHrefPattern
@@ -46,7 +47,7 @@ public class PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation extend
         push.setConsumerUrl(consumerUrl);
         push.setTitle(title);
         push.setLanguage(language);
-        push.setVoice(voice);
+        push.setVoices(voices);
         push.setLinksExpression(linksExpression);
         push.setAllowedHrefPattern(allowedHrefPattern);
         return push;

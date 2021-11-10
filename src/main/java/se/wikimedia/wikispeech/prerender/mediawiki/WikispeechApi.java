@@ -1,4 +1,4 @@
-package se.wikimedia.wikispeech.prerender;
+package se.wikimedia.wikispeech.prerender.mediawiki;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +10,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import se.wikimedia.wikispeech.prerender.Collector;
+import se.wikimedia.wikispeech.prerender.OkHttpUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,24 +31,7 @@ public class WikispeechApi {
     private OkHttpClient client;
 
     public void open() {
-        client = new OkHttpClient.Builder()
-                .readTimeout(5, TimeUnit.MINUTES)
-                .addInterceptor(
-                        new Interceptor() {
-                            @NotNull
-                            @Override
-                            public Response intercept(@NotNull Chain chain) throws IOException {
-                                Request originalRequest = chain.request();
-                                Request requestWithUserAgent = originalRequest
-                                        .newBuilder()
-                                        .header("Content-Type", "application/json")
-                                        .header("User-Agent", "WMSE Wikispeech API Java client")
-                                        .build();
-
-                                return chain.proceed(requestWithUserAgent);
-                            }
-                        })
-                .build();
+        client = OkHttpUtil.clientFactory();
 
     }
 
@@ -76,7 +61,14 @@ public class WikispeechApi {
 
     }
 
-    public long getCurrentRevision(String consumerUrl, String title) throws IOException {
+    /**
+     *
+     * @param consumerUrl
+     * @param title
+     * @return null if page does not exist.
+     * @throws IOException
+     */
+    public Long getCurrentRevision(String consumerUrl, String title) throws IOException {
         HttpUrl.Builder urlBuilder = HttpUrl.parse(consumerUrl + "/api.php").newBuilder();
         urlBuilder.addQueryParameter("action", "query");
         urlBuilder.addQueryParameter("prop", "info");
@@ -97,6 +89,9 @@ public class WikispeechApi {
         JsonNode json = objectMapper.readTree(response.body().byteStream());
 
         JsonNode pages = json.get("query").get("pages");
+        if (pages.has("-1")) {
+            return null;
+        }
         JsonNode page = pages.get(pages.fieldNames().next());
         return page.get("lastrevid").longValue();
     }

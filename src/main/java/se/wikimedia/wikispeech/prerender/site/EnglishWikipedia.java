@@ -4,7 +4,6 @@ import se.wikimedia.wikispeech.prerender.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation;
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.PushSegmentPageAndQueueForSynthesis;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,33 +31,42 @@ public class EnglishWikipedia extends RemoteSite {
         return CONSUMER_URL_EN_WIKIPEDIA;
     }
 
+    private RecentChangesPoller recentChangesPoller;
+
+    @Override
+    public void start() {
+        recentChangesPoller = new RecentChangesPoller(this);
+        recentChangesPoller.start();
+    }
+
+    @Override
+    public void stop() {
+        recentChangesPoller.stop();
+    }
+
     @Override
     public void queueCommands() throws Exception {
 
         // synthesize main page.
-        for (String voice : getVoices()) {
-            Prevalence.getInstance().execute(
-                    PushSegmentPageAndQueueForSynthesis.factory(
-                            getConsumerUrl(),
-                            "Main_Page",
-                            getLanguage(),
-                            voice
-                    )
-            );
-        }
+        Prevalence.getInstance().execute(
+                PushSegmentPageAndQueueForSynthesis.factory(
+                        getConsumerUrl(),
+                        "Main_Page",
+                        getLanguage(),
+                        getVoices()
+                )
+        );
 
         // scrape main page content for wiki links and synthesize those.
-        for (String voice : getVoices()) {
-            Prevalence.getInstance().execute(
-                    PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation.factory(
-                            getConsumerUrl(),
-                            "Main_Page",
-                            getLanguage(),
-                            voice,
-                            "//*[@id='mp-upper']//A[starts-with(@href, '/wiki/')]",
-                            "/wiki/[^:]+"
-                    )
-            );
-        }
+        Prevalence.getInstance().execute(
+                PushScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation.factory(
+                        getConsumerUrl(),
+                        "Main_Page",
+                        getLanguage(),
+                        getVoices(),
+                        "//*[@id='mp-upper']//A[starts-with(@href, '/wiki/')]",
+                        "/wiki/[^:]+"
+                )
+        );
     }
 }

@@ -14,4 +14,8 @@ public abstract class RemoteSite {
 
     public abstract void queueCommands() throws Exception;
 
+    public abstract void start();
+
+    public abstract void stop();
+
 }

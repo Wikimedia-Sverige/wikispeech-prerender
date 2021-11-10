@@ -2,15 +2,16 @@ package se.wikimedia.wikispeech.prerender.prevalence.domain.command;
 
 import lombok.Data;
 
+import java.time.ZonedDateTime;
 import java.util.Collection;
 
 @Data
-public class ScrapePageForWikiLinksAndQueueLinkedPagesForSegmentation extends Command {
+public class PollRecentChanges  extends Command {
 
     private static final long serialVersionUID = 1L;
 
     private String consumerUrl;
-    private String title;
+    private ZonedDateTime startTimestamp;
 
     private String language;
     private Collection<String> voices;
