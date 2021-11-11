@@ -16,6 +16,9 @@ public class CrawlSite extends Command {
     private String language;
     private Collection<String> voices;
 
+    /** If not null, only the first n segments of the page will be synthesized */
+    private Integer nFirstSegmentsLimit;
+
     private String linksExpression = "//*[@id='bodyContent']//A[starts-with(@href, '/wiki/')]";
     private String allowedHrefPattern = "/wiki/[^:]+";
 

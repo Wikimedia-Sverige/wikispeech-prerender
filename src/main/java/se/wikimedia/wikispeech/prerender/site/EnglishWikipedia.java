@@ -53,7 +53,8 @@ public class EnglishWikipedia extends RemoteSite {
                         getConsumerUrl(),
                         "Main_Page",
                         getLanguage(),
-                        getVoices()
+                        getVoices(),
+                        null
                 )
         );
 

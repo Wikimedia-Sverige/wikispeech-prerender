@@ -74,7 +74,8 @@ public class SwedishWikipedia extends RemoteSite {
                         getConsumerUrl(),
                         "Portal:Huvudsida",
                         getLanguage(),
-                        getVoices()
+                        getVoices(),
+                        null
                 )
         );
 

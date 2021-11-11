@@ -56,7 +56,9 @@ public class WikispeechApi {
         JsonNode json = objectMapper.readTree(response.body().byteStream());
         ArrayNode segmentsJson = objectMapper.convertValue(json.get("wikispeech-segment").get("segments"), ArrayNode.class);
         for (int i = 0; i < segmentsJson.size(); i++) {
-            collector.collect(objectMapper.convertValue(segmentsJson.get(i), Segment.class));
+            if (!collector.collect(objectMapper.convertValue(segmentsJson.get(i), Segment.class))) {
+                break;
+            }
         }
 
     }

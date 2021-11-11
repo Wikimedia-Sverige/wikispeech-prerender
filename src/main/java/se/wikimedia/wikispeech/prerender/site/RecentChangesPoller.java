@@ -84,7 +84,7 @@ public class RecentChangesPoller {
         api.open();
         api.get(remoteSite.getConsumerUrl(), 0, lastRecentChangesItemProcessed == null ? null : lastRecentChangesItemProcessed.getTimestamp(), new Collector<RecentChangesApi.Item>() {
             @Override
-            public void collect(RecentChangesApi.Item recentlyChanged) {
+            public boolean collect(RecentChangesApi.Item recentlyChanged) {
                 try {
                     if (Prevalence.getInstance().execute(
                             new PageNeedsToBeSegmented(
@@ -99,7 +99,8 @@ public class RecentChangesPoller {
                                         remoteSite.getConsumerUrl(),
                                         recentlyChanged.getTitle(),
                                         remoteSite.getLanguage(),
-                                        remoteSite.getVoices()
+                                        remoteSite.getVoices(),
+                                        20
                                 )
                         );
                     } else {
@@ -114,6 +115,8 @@ public class RecentChangesPoller {
                 } else if (recentlyChanged.getTimestamp().isAfter(lastRecentChangesItemProcessed.getTimestamp())) {
                     lastRecentChangesItemProcessed = recentlyChanged;
                 }
+
+                return true;
             }
         });
 

@@ -58,7 +58,9 @@ public class SpecialPagesWithMostVersionsParser {
                 throw new RuntimeException();
             }
             entry.setVersionsCount(Integer.parseInt(versionsCountMatcher.group(1).replaceAll("\\s+", "")));
-            collector.collect(entry.getTitle());
+            if (!collector.collect(entry.getTitle())) {
+                break;
+            }
         }
     }
 

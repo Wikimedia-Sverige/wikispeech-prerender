@@ -165,7 +165,8 @@ public class CommandQueue {
                                     command.getConsumerUrl(),
                                     command.getStartingPointTitle(),
                                     command.getLanguage(),
-                                    command.getVoices()
+                                    command.getVoices(),
+                                    command.getNFirstSegmentsLimit()
                             )
                     );
                 }
@@ -178,7 +179,7 @@ public class CommandQueue {
                     scraper.setAllowedHrefPattern(command.getAllowedHrefPattern());
                     scraper.setCollector(new Collector<String>() {
                         @Override
-                        public void collect(String title) {
+                        public boolean collect(String title) {
                             try {
                                 Prevalence.getInstance().execute(
                                         PushCrawlSite.factory(
@@ -187,6 +188,7 @@ public class CommandQueue {
                                                 command.getMaximumDepth() - 1,
                                                 command.getLanguage(),
                                                 command.getVoices(),
+                                                command.getNFirstSegmentsLimit(),
                                                 command.getLinksExpression(),
                                                 command.getAllowedHrefPattern()
                                         )
@@ -194,6 +196,7 @@ public class CommandQueue {
                             } catch (Exception e) {
                                 log.error("Failed to queue crawl title {} via {}", title, command, e);
                             }
+                            return true;
                         }
                     });
                     scraper.execute();
@@ -229,9 +232,15 @@ public class CommandQueue {
                 }
 
                 api.segment(command.getConsumerUrl(), command.getTitle(), new Collector<WikispeechApi.Segment>() {
+                    private int segmentCount = 0;
                     @Override
-                    public void collect(WikispeechApi.Segment segment) {
+                    public boolean collect(WikispeechApi.Segment segment) {
                         try {
+                            if (command.getNFirstSegmentsLimit() != null
+                                && segmentCount++ > command.getNFirstSegmentsLimit()) {
+                                // todo add site page to a command queue which will be polled when synthesize queue has nothing to do.
+                                return false;
+                            }
                             for (String voice : command.getVoices()) {
                                 if (!Prevalence.getInstance().execute(
                                         new VoiceNeedsToBeSynthesized(
@@ -269,6 +278,7 @@ public class CommandQueue {
                         } catch (Exception e) {
                             log.error("Failed to queue synthesize segment {} via {}", segment, command, e);
                         }
+                        return true;
                     }
                 });
                 Prevalence.getInstance().execute(new SetPageLastSegmented(command.getConsumerUrl(), command.getTitle(), currentRevision));
@@ -337,7 +347,7 @@ public class CommandQueue {
                 scraper.setAllowedHrefPattern(command.getAllowedHrefPattern());
                 scraper.setCollector(new Collector<String>() {
                     @Override
-                    public void collect(String title) {
+                    public boolean collect(String title) {
                         PushSegmentPageAndQueueForSynthesis push = new PushSegmentPageAndQueueForSynthesis();
                         push.setConsumerUrl(command.getConsumerUrl());
                         push.setTitle(title);
@@ -348,6 +358,7 @@ public class CommandQueue {
                         } catch (Exception e) {
                             log.error("Failed to execute {} via {}", push, command, e);
                         }
+                        return true;
                     }
                 });
                 scraper.execute();

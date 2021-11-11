@@ -23,11 +23,10 @@ public class RecentChangesApi {
     public static void main(String[] args) throws Exception {
         RecentChangesApi api = new RecentChangesApi();
         api.open();
-        ;
         api.get("https://sv.wikipedia.org/w", 0, null, new Collector<Item>() {
             @Override
-            public void collect(Item collected) {
-
+            public boolean collect(Item collected) {
+                return true;
             }
         });
     }
@@ -77,7 +76,9 @@ public class RecentChangesApi {
         JsonNode json = objectMapper.readTree(response.body().byteStream());
         ArrayNode array = (ArrayNode) json.get("query").get("recentchanges");
         for (int i = 0; i < array.size(); i++) {
-            collector.collect(objectMapper.convertValue(array.get(i), Item.class));
+            if (!collector.collect(objectMapper.convertValue(array.get(i), Item.class))) {
+                break;
+            }
         }
 
     }

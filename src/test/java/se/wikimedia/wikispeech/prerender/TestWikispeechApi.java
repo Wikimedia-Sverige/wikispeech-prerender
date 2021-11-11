@@ -16,10 +16,12 @@ public class TestWikispeechApi {
         api.open();
         String title = "Barack Obama";
         List<WikispeechApi.Segment> segments = new ArrayList<>();
-        api.segment(consumerUrl, "Barack Obama", new Collector<WikispeechApi.Segment>() {
+        api.segment(consumerUrl, "Barack Obama", new Collector<>() {
+            int counter = 0;
             @Override
-            public void collect(WikispeechApi.Segment collected) {
+            public boolean collect(WikispeechApi.Segment collected) {
                 segments.add(collected);
+                return counter++ == 10;
             }
         });
         long currentRevision = api.getCurrentRevision(consumerUrl, title);

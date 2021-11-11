@@ -66,7 +66,9 @@ public class ScrapePageForWikiLinks {
             String href = hrefExpression.evaluate(linkNode);
             if (allowedHrefPattern.matcher(href).matches()) {
                 String title = titleExpression.evaluate(linkNode);
-                collector.collect(title);
+                if (!collector.collect(title)) {
+                    break;
+                }
             }
         }
     }

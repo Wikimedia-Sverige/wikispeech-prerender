@@ -18,6 +18,9 @@ public class PushCrawlSite extends PushToCommandQueue<CrawlSite> {
     private String language;
     private Collection<String> voices;
 
+    /** If not null, only the first n segments of the page will be synthesized */
+    private Integer nFirstSegmentsLimit;
+
     private String linksExpression;
     private String allowedHrefPattern;
 
@@ -29,19 +32,21 @@ public class PushCrawlSite extends PushToCommandQueue<CrawlSite> {
         command.setConsumerUrl(this.consumerUrl);
         command.setStartingPointTitle(this.startingPointTitle);
         command.setMaximumDepth(this.maximumDepth);
-        command.setLanguage(language);
-        command.setVoices(voices);
+        command.setLanguage(this.language);
+        command.setVoices(this.voices);
+        command.setNFirstSegmentsLimit(this.nFirstSegmentsLimit);
         command.setLinksExpression(this.linksExpression);
         command.setAllowedHrefPattern(this.allowedHrefPattern);
         return command;
     }
 
-    public static PushCrawlSite factory(String consumerUrl, String startingPointTitle, int maximumDepth, String language, Collection<String> voices, String linksExpression, String allowedHrefPattern) {
+    public static PushCrawlSite factory(String consumerUrl, String startingPointTitle, int maximumDepth, String language, Collection<String> voices, Integer nFirstSegmentsLimit, String linksExpression, String allowedHrefPattern) {
         PushCrawlSite push = new PushCrawlSite();
         push.setConsumerUrl(consumerUrl);
         push.setStartingPointTitle(startingPointTitle);
         push.setLanguage(language);
         push.setVoices(voices);
+        push.setNFirstSegmentsLimit(nFirstSegmentsLimit);
         push.setMaximumDepth(maximumDepth);
         push.setLinksExpression(linksExpression);
         push.setAllowedHrefPattern(allowedHrefPattern);

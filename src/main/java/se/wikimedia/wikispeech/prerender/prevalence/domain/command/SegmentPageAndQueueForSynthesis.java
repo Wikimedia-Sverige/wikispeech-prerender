@@ -15,6 +15,9 @@ public class SegmentPageAndQueueForSynthesis extends Command {
     private String language;
     private Collection<String> voices;
 
+    /** If not null, only the first n segments of the page will be synthesized */
+    private Integer nFirstSegmentsLimit;
+
     @Override
     public <R> R accept(CommandVisitor<R> visitor) {
         return visitor.visit(this);
