@@ -2,12 +2,15 @@ package se.wikimedia.wikispeech.prerender.prevalence.domain.command;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 public class SynthesizeSegment extends Command {
 
     private static final long serialVersionUID = 1L;
+
+    private List<LocalDateTime> failedAttempts;
 
     private String consumerUrl;
     private String title;

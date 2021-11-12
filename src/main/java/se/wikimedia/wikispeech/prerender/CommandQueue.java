@@ -16,7 +16,6 @@ import se.wikimedia.wikispeech.prerender.prevalence.transaction.SetSynthesizedVo
 import se.wikimedia.wikispeech.prerender.prevalence.transaction.command.*;
 import se.wikimedia.wikispeech.prerender.site.ScrapePageForWikiLinks;
 
-import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -39,6 +38,8 @@ public class CommandQueue {
 
     @Setter
     private Duration maximumSynthesizedVoiceAge = Duration.ofDays(30);
+
+    private int maximumFailedSegmentationAttempts = 20;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private CountDownLatch stoppedLatch;
@@ -324,12 +325,13 @@ public class CommandQueue {
                                     listenResponse.getRevision()
                             )
                     );
-                } catch (SocketTimeoutException timeoutException) {
-                    log.warn("Timeout while rendering. Requeuing {}", command, timeoutException);
-                    Prevalence.getInstance().execute(PushSynthesizeSegmentToCommandQueue.factory(command));
                 } catch (Exception exception) {
-                    log.error("Failed to process, requeuing {}", command, exception);
-                    Prevalence.getInstance().execute(PushSynthesizeSegmentToCommandQueue.factory(command));
+                    if (command.getFailedAttempts() != null && command.getFailedAttempts().size() > maximumFailedSegmentationAttempts) {
+                        log.error("Failed to process. Too many previous attempts. Command is thrown away. {}", command, exception);
+                    } else {
+                        log.error("Failed to process, requeuing {}", command, exception);
+                        Prevalence.getInstance().execute(PushSynthesizeSegmentToCommandQueue.requeueFactory(command));
+                    }
                 }
             } catch (Exception e) {
                 log.error("Failed to process {}", command, e);
