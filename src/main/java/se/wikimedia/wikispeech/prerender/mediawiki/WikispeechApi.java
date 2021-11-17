@@ -1,38 +1,46 @@
 package se.wikimedia.wikispeech.prerender.mediawiki;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.Data;
 import lombok.Getter;
 import okhttp3.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import se.wikimedia.wikispeech.prerender.Collector;
-import se.wikimedia.wikispeech.prerender.OkHttpUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
+@Component
 public class WikispeechApi {
 
-    private Logger log = LogManager.getLogger();
+    private final Logger log = LogManager.getLogger(getClass());
 
     private boolean skipJournalMetrics = true;
     private String wikispeechBaseUrl = "https://wikispeech.wikimedia.se/w";
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper;
     private OkHttpClient client;
 
-    public void open() {
-        client = OkHttpUtil.clientFactory();
-
+    public WikispeechApi(
+            @Autowired OkHttpClient client
+    ) {
+        this.client = client;
+        objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
     }
 
     public void segment(String consumerUrl, String page, Collector<Segment> collector) throws IOException {
@@ -64,13 +72,17 @@ public class WikispeechApi {
     }
 
     /**
-     *
      * @param consumerUrl
      * @param title
      * @return null if page does not exist.
      * @throws IOException
      */
     public Long getCurrentRevision(String consumerUrl, String title) throws IOException {
+        PageInfo pageInfo = getPageInfo(consumerUrl, title);
+        return pageInfo == null ? null : pageInfo.getLastRevisionIdentity();
+    }
+
+    public PageInfo getPageInfo(String consumerUrl, String title) throws IOException {
         HttpUrl.Builder urlBuilder = HttpUrl.parse(consumerUrl + "/api.php").newBuilder();
         urlBuilder.addQueryParameter("action", "query");
         urlBuilder.addQueryParameter("prop", "info");
@@ -94,8 +106,12 @@ public class WikispeechApi {
         if (pages.has("-1")) {
             return null;
         }
-        JsonNode page = pages.get(pages.fieldNames().next());
-        return page.get("lastrevid").longValue();
+        try {
+            return objectMapper.convertValue(pages.get(pages.fieldNames().next()), PageInfo.class);
+        } catch (Exception e) {
+            log.error("Failed to deserialize PageInfo from {}", pages, e);
+            throw e;
+        }
     }
 
     public static class MWException extends IOException {
@@ -128,17 +144,17 @@ public class WikispeechApi {
         mostRecentRevisionSeenCache.computeIfAbsent(consumerUrl, k -> new HashMap<>()).put(title, revision);
     }
 
-    public ListenResponseEnvelope listen(String consumerUrl, String title, String segmentHash, long lastKnownRevision, String lang) throws IOException {
+    public ListenResponseEnvelope listen(String consumerUrl, String title, String segmentHash, long lastKnownRevision, String language, String voice) throws IOException {
         ListenResponseEnvelope envelope = new ListenResponseEnvelope();
         long greatestRevisionKnown = getGreatestRevisionKnown(consumerUrl, title, lastKnownRevision);
         try {
-            envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, lang));
+            envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, language, voice));
             envelope.setRevision(lastKnownRevision);
         } catch (MWException mwException) {
             if ("MediaWiki\\Wikispeech\\Segment\\OutdatedOrInvalidRevisionException".equals(mwException.getExceptionClass())) {
                 greatestRevisionKnown = getCurrentRevision(consumerUrl, title);
                 setGreatestRevisionKnown(consumerUrl, title, greatestRevisionKnown);
-                envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, lang));
+                envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, language, voice));
                 envelope.setRevision(greatestRevisionKnown);
             } else {
                 throw mwException;
@@ -147,13 +163,16 @@ public class WikispeechApi {
         return envelope;
     }
 
-    private ListenResponse doListen(String consumerUrl, String segmentHash, long revision, String lang) throws IOException {
+    private ListenResponse doListen(String consumerUrl, String segmentHash, long revision, String language, String voice) throws IOException {
         HttpUrl.Builder urlBuilder = HttpUrl.parse(wikispeechBaseUrl + "/api.php").newBuilder();
         urlBuilder.addQueryParameter("action", "wikispeech-listen");
         urlBuilder.addQueryParameter("consumer-url", consumerUrl);
         urlBuilder.addQueryParameter("format", "json");
         urlBuilder.addQueryParameter("skip-journal-metrics", String.valueOf(skipJournalMetrics));
-        urlBuilder.addQueryParameter("lang", lang);
+        urlBuilder.addQueryParameter("lang", language);
+        if (voice != null) {
+            urlBuilder.addQueryParameter("voice", voice);
+        }
         urlBuilder.addQueryParameter("revision", String.valueOf(revision));
         urlBuilder.addQueryParameter("segment", segmentHash);
 
@@ -220,5 +239,35 @@ public class WikispeechApi {
     public static class SegmentContent {
         private String path;
         private String string;
+    }
+
+    @Data
+    public static class PageInfo {
+        @JsonProperty(value = "pageid")
+        private Long pageIdentity;
+        @JsonProperty(value = "ns")
+        private Integer namespaceIdentity;
+        @JsonProperty(value = "title")
+        private String title;
+        @JsonProperty(value = "contentmodel")
+        private String contentModel;
+        @JsonProperty(value = "pagelanguage")
+        private String pageLanguage;
+        @JsonProperty(value = "pagelanguagehtmlcode")
+        private String pageLanguageHtmlCode;
+        @JsonProperty(value = "pagelanguagedir")
+        private String pageLanguageDirectory;
+        @JsonProperty(value = "touched")
+        private OffsetDateTime touched;
+        @JsonProperty(value = "lastrevid")
+        private Long lastRevisionIdentity;
+        @JsonProperty(value = "length")
+        private Integer length;
+        @JsonProperty(value = "redirect")
+        private String redirect;
+        @JsonProperty(value = "new")
+        private String _new;
+
+
     }
 }

@@ -10,43 +10,45 @@ import lombok.Data;
 import okhttp3.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import se.wikimedia.wikispeech.prerender.Collector;
-import se.wikimedia.wikispeech.prerender.OkHttpUtil;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Iterator;
+import java.util.List;
 
+@Component
 public class RecentChangesApi {
 
-    public static void main(String[] args) throws Exception {
-        RecentChangesApi api = new RecentChangesApi();
-        api.open();
-        api.get("https://sv.wikipedia.org/w", 0, null, new Collector<Item>() {
-            @Override
-            public boolean collect(Item collected) {
-                return true;
-            }
-        });
-    }
+    private final Logger log = LogManager.getLogger(getClass());
 
-    private Logger log = LogManager.getLogger();
+    private final OkHttpClient client;
+    private final ObjectMapper objectMapper;
 
-    private OkHttpClient client;
-    private ObjectMapper objectMapper;
-
-    public void open() {
-        client = OkHttpUtil.clientFactory();
+    public RecentChangesApi(
+            @Autowired OkHttpClient client
+    ) {
+        this.client = client;
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-
     }
 
     public void get(
             String wikiBaseUrl,
             int namespace,
+            OffsetDateTime fromTimestamp,
+            Collector<Item> collector
+    ) throws IOException {
+        get(wikiBaseUrl, List.of(namespace), fromTimestamp, collector);
+    }
+
+    public void get(
+            String wikiBaseUrl,
+            List<Integer> namespaces,
             OffsetDateTime fromTimestamp,
             Collector<Item> collector
     ) throws IOException {
@@ -56,9 +58,19 @@ public class RecentChangesApi {
         urlBuilder.addQueryParameter("list", "recentchanges");
         urlBuilder.addQueryParameter("rcdir", "newer");
         if (fromTimestamp != null) {
-            urlBuilder.addQueryParameter("rcend", fromTimestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+            urlBuilder.addQueryParameter("rcstart", fromTimestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         }
-        urlBuilder.addQueryParameter("rcnamespace", String.valueOf(namespace));
+        if (namespaces != null && !namespaces.isEmpty()) {
+            StringBuilder values = new StringBuilder(namespaces.size() * 4);
+            for (Iterator<Integer> iterator = namespaces.iterator(); iterator.hasNext(); ) {
+                int namespace = iterator.next();
+                values.append(namespace);
+                if (iterator.hasNext()) {
+                    values.append("|");
+                }
+            }
+            urlBuilder.addQueryParameter("rcnamespace", values.toString());
+        }
         urlBuilder.addQueryParameter("rclimit", "500");
         urlBuilder.addQueryParameter("format", "json");
 
@@ -76,7 +88,14 @@ public class RecentChangesApi {
         JsonNode json = objectMapper.readTree(response.body().byteStream());
         ArrayNode array = (ArrayNode) json.get("query").get("recentchanges");
         for (int i = 0; i < array.size(); i++) {
-            if (!collector.collect(objectMapper.convertValue(array.get(i), Item.class))) {
+            Item item;
+            try {
+                item = objectMapper.convertValue(array.get(i), Item.class);
+            } catch (Exception e) {
+                log.error("Failed to deserialize item from {}", array.get(i), e);
+                throw e;
+            }
+            if (!collector.collect(item)) {
                 break;
             }
         }
@@ -86,20 +105,31 @@ public class RecentChangesApi {
     @Data
     public static class Item {
         @JsonProperty("type")
-        private String type;
+        private ItemType type;
         @JsonProperty("ns")
-        private int ns;
+        private int namespaceIdentity;
         private String title;
         @JsonProperty("pageid")
-        private int pageid;
+        private int pageIdentity;
         @JsonProperty("revid")
-        private int revid;
+        private int revisionIdentity;
         @JsonProperty("old_revid")
-        private int old_revid;
+        private int oldRevisionIdentity;
         @JsonProperty("rcid")
-        private int rcid;
+        private int recentChangesIdentity;
         @JsonProperty("timestamp")
         private OffsetDateTime timestamp;
+        @JsonProperty("actionhidden")
+        private String actionhidden;
+    }
+
+    public static enum ItemType {
+        @JsonProperty("new")
+        created,
+        @JsonProperty("edit")
+        edit,
+        @JsonProperty("log")
+        log
     }
 
 }
