@@ -31,12 +31,16 @@ public class WikispeechApi {
     private boolean skipJournalMetrics = true;
     private String wikispeechBaseUrl = "https://wikispeech.wikimedia.se/w";
 
-    private ObjectMapper objectMapper;
-    private OkHttpClient client;
+    private final ObjectMapper objectMapper;
+    private final OkHttpClient client;
+
+    private final PageApi pageApi;
 
     public WikispeechApi(
+            @Autowired PageApi pageApi,
             @Autowired OkHttpClient client
     ) {
+        this.pageApi = pageApi;
         this.client = client;
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
@@ -78,40 +82,8 @@ public class WikispeechApi {
      * @throws IOException
      */
     public Long getCurrentRevision(String consumerUrl, String title) throws IOException {
-        PageInfo pageInfo = getPageInfo(consumerUrl, title);
+        PageApi.PageInfo pageInfo = pageApi.getPageInfo(consumerUrl, title);
         return pageInfo == null ? null : pageInfo.getLastRevisionIdentity();
-    }
-
-    public PageInfo getPageInfo(String consumerUrl, String title) throws IOException {
-        HttpUrl.Builder urlBuilder = HttpUrl.parse(consumerUrl + "/api.php").newBuilder();
-        urlBuilder.addQueryParameter("action", "query");
-        urlBuilder.addQueryParameter("prop", "info");
-        urlBuilder.addQueryParameter("format", "json");
-        urlBuilder.addQueryParameter("titles", title);
-
-        Request request = new Request.Builder()
-                .url(urlBuilder.build())
-                .build();
-
-        Call call = client.newCall(request);
-        Response response = call.execute();
-
-        if (response.code() != 200) {
-            throw new IOException("Response" + response);
-        }
-
-        JsonNode json = objectMapper.readTree(response.body().byteStream());
-
-        JsonNode pages = json.get("query").get("pages");
-        if (pages.has("-1")) {
-            return null;
-        }
-        try {
-            return objectMapper.convertValue(pages.get(pages.fieldNames().next()), PageInfo.class);
-        } catch (Exception e) {
-            log.error("Failed to deserialize PageInfo from {}", pages, e);
-            throw e;
-        }
     }
 
     public static class MWException extends IOException {
@@ -241,33 +213,4 @@ public class WikispeechApi {
         private String string;
     }
 
-    @Data
-    public static class PageInfo {
-        @JsonProperty(value = "pageid")
-        private Long pageIdentity;
-        @JsonProperty(value = "ns")
-        private Integer namespaceIdentity;
-        @JsonProperty(value = "title")
-        private String title;
-        @JsonProperty(value = "contentmodel")
-        private String contentModel;
-        @JsonProperty(value = "pagelanguage")
-        private String pageLanguage;
-        @JsonProperty(value = "pagelanguagehtmlcode")
-        private String pageLanguageHtmlCode;
-        @JsonProperty(value = "pagelanguagedir")
-        private String pageLanguageDirectory;
-        @JsonProperty(value = "touched")
-        private OffsetDateTime touched;
-        @JsonProperty(value = "lastrevid")
-        private Long lastRevisionIdentity;
-        @JsonProperty(value = "length")
-        private Integer length;
-        @JsonProperty(value = "redirect")
-        private String redirect;
-        @JsonProperty(value = "new")
-        private String _new;
-
-
-    }
 }

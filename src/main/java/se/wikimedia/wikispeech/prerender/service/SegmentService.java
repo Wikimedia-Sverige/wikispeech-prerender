@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.Collector;
+import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.query.*;
@@ -30,14 +31,17 @@ public class SegmentService extends ExecutorService implements SmartLifecycle {
     private final Prevalence prevalence;
 
     private final WikispeechApi wikispeechApi;
+    private final PageApi pageApi;
 
 
     public SegmentService(
             @Autowired Prevalence prevalence,
-            @Autowired WikispeechApi wikispeechApi
+            @Autowired WikispeechApi wikispeechApi,
+            @Autowired PageApi pageApi
     ) {
         this.prevalence = prevalence;
         this.wikispeechApi = wikispeechApi;
+        this.pageApi = pageApi;
         setNumberOfWorkerThreads(1);
     }
 
@@ -107,7 +111,7 @@ public class SegmentService extends ExecutorService implements SmartLifecycle {
             return;
         }
 
-        WikispeechApi.PageInfo pageInfo = wikispeechApi.getPageInfo(consumerUrl, title);
+        PageApi.PageInfo pageInfo = pageApi.getPageInfo(consumerUrl, title);
 
         String pageLanguage = pageInfo.getPageLanguage();
         if (pageLanguage == null) {
