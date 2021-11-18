@@ -139,13 +139,16 @@ public class RecentChangesService extends ExecutorService implements SmartLifecy
                                             recentlyChanged.getRevisionIdentity()
                                     )
                             )) {
-                                log.debug("Queuing command to segment based on {} at {}", recentlyChanged, wiki.getName());
-                                segmentService.queue(
+                                if (segmentService.queue(
                                         wiki.getConsumerUrl(),
                                         recentlyChanged.getTitle()
-                                );
+                                ) ) {
+                                    log.debug("Queued command to segment based on {} at {}", recentlyChanged, wiki.getName());
+                                } else {
+                                    log.trace("The queue already contains a command to segment based on {} at {}", recentlyChanged, wiki.getName());
+                                }
                             } else {
-                                log.debug("Already up to date with recent change for {} at {}", recentlyChanged.getTitle(), wiki.getName());
+                                log.info("Already up to date with recent change for {} at {}", recentlyChanged.getTitle(), wiki.getName());
                             }
 
                         } catch (Exception e) {

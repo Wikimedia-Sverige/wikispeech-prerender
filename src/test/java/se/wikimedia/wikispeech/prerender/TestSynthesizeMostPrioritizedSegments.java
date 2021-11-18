@@ -4,6 +4,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.prevayler.PrevaylerFactory;
+import se.wikimedia.wikispeech.prerender.service.PriorityService;
 import se.wikimedia.wikispeech.prerender.service.SynthesizeService;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
@@ -106,7 +107,9 @@ public class TestSynthesizeMostPrioritizedSegments {
         Prevalence prevalence = new Prevalence();
         prevalence.setPrevalyer(PrevaylerFactory.createTransientPrevayler(root));
 
-        List<SynthesizeService.SynthesizeCommand> list = prevalence.execute(new SynthesizeService.GatherCandidatesQuery(100));
+        PriorityService priorityService = new PriorityService();
+
+        List<SynthesizeService.SynthesizeCommand> list = prevalence.execute(new SynthesizeService.GatherCandidatesQuery(priorityService, 100));
         Assert.assertEquals(4, list.size());
 
         Assert.assertEquals("Title 1", list.get(0).getTitle());

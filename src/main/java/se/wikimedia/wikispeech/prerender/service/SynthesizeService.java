@@ -35,8 +35,10 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
 
     private final WikispeechApi wikispeechApi;
 
+    private final PriorityService priorityService;
+
     private final int numberOfWorkerThreads = 2;
-    private final int maximumNumberOfCandidates = 1000;
+    private final int maximumNumberOfCandidates = 100;
 
     private ExecutorService workers;
 
@@ -45,10 +47,13 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
 
     public SynthesizeService(
             @Autowired Prevalence prevalence,
-            @Autowired WikispeechApi wikispeechApi
+            @Autowired WikispeechApi wikispeechApi,
+            @Autowired PriorityService priorityService
     ) {
         this.prevalence = prevalence;
         this.wikispeechApi = wikispeechApi;
+        this.priorityService = priorityService;
+
         workers = new ExecutorService() {
             @Override
             protected void execute() {
@@ -65,6 +70,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                 }
             }
         };
+
         populator = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -79,7 +85,9 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                     } else {
                         List<SynthesizeCommand> commands;
                         try {
-                            commands = prevalence.execute(new GatherCandidatesQuery(maximumNumberOfCandidates));
+                            commands = prevalence.execute(
+                                    new GatherCandidatesQuery(
+                                            priorityService, maximumNumberOfCandidates));
                         } catch (Exception e) {
                             log.error("Failed to gather candidates for synthesis", e);
                             continue;
@@ -150,18 +158,21 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
     @Data
     public static class GatherCandidatesQuery implements Query<Root, List<SynthesizeCommand>> {
 
-        private int maximumNumberOfCandidates;
-        private Comparator<SegmentVoiceToBeSynthesized> comparator = new SegmentVoiceToBeSynthesizedComparator();
+        private PriorityService priorityService;
 
-        public GatherCandidatesQuery(int maximumNumberOfCandidates) {
+        private int maximumNumberOfCandidates;
+
+        public GatherCandidatesQuery(PriorityService priorityService, int maximumNumberOfCandidates) {
             this.maximumNumberOfCandidates = maximumNumberOfCandidates;
+            this.priorityService = priorityService;
         }
 
         @Override
         public List<SynthesizeCommand> query(Root root, Date date) throws Exception {
-            Set<String> wikiLanguageDefaultVoices = new HashSet<>(0);
+            Set<String> wikiLanguageDefaultVoices = new HashSet<>(1);
             wikiLanguageDefaultVoices.add(null);
 
+            SegmentVoiceToBeSynthesizedComparator comparator = new SegmentVoiceToBeSynthesizedComparator(priorityService);
             se.wikimedia.wikispeech.prerender.PriorityQueue<SegmentVoiceToBeSynthesized> candidates = new PriorityQueue<>(maximumNumberOfCandidates, comparator);
             for (Wiki wiki : root.getWikiByConsumerUrl().values()) {
 
@@ -209,7 +220,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                 item.setConsumerUrl(candidate.getWiki().getConsumerUrl());
                 item.setTitle(candidate.getPage().getTitle());
                 item.setLanguage(candidate.getLanguage());
-                item.setHash(candidate.getSegment().getHash());
+                item.setHash(candidate.getPageSegment().getHash());
                 item.setRevision(candidate.getPage().getRevisionAtSegmentation());
                 item.setVoice(candidate.getVoice());
                 response.add(item);
@@ -221,44 +232,80 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
         public static class SegmentVoiceToBeSynthesized {
             private Wiki wiki;
             private Page page;
-            private PageSegment segment;
-            private PageSegmentVoice segmentVoice;
+            private PageSegment pageSegment;
+            private PageSegmentVoice pageSegmentVoice;
             private String language;
             private String voice;
 
-            public SegmentVoiceToBeSynthesized(Wiki wiki, Page page, PageSegment segment, PageSegmentVoice segmentVoice, String language, String voice) {
+            public SegmentVoiceToBeSynthesized(Wiki wiki, Page page, PageSegment pageSegment, PageSegmentVoice pageSegmentVoice, String language, String voice) {
                 this.wiki = wiki;
                 this.page = page;
-                this.segment = segment;
-                this.segmentVoice = segmentVoice;
+                this.pageSegment = pageSegment;
+                this.pageSegmentVoice = pageSegmentVoice;
                 this.language = language;
                 this.voice = voice;
             }
         }
 
         public static class SegmentVoiceToBeSynthesizedComparator implements Comparator<SegmentVoiceToBeSynthesized> {
+
+            private PriorityService priorityService;
+
+            public SegmentVoiceToBeSynthesizedComparator(PriorityService priorityService) {
+                this.priorityService = priorityService;
+            }
+
+            private Map<SegmentVoiceToBeSynthesized, Double> prioritiesCache = new HashMap<>(1000);
+
+            public double calculatePriority(SegmentVoiceToBeSynthesized segmentVoiceToBeSynthesized) {
+
+                double priority = 1D;
+                priority *= segmentVoiceToBeSynthesized.getPage().getPriority();
+
+                if (segmentVoiceToBeSynthesized.getPageSegmentVoice() != null
+                        && segmentVoiceToBeSynthesized.getPageSegmentVoice().getFailedAttempts() != null
+                        && !segmentVoiceToBeSynthesized.getPageSegmentVoice().getFailedAttempts().isEmpty()) {
+                    priority /= segmentVoiceToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size();
+                }
+
+                // lower segment index in page is slightly more prioritized
+                priority += 1D - Math.min(1000, segmentVoiceToBeSynthesized.getPageSegment().getLowestIndexAtSegmentation())/1000D;
+
+                // no synthesized voice at all is slightly more prioritized
+                if (segmentVoiceToBeSynthesized.getPageSegmentVoice() == null) {
+                    priority += 0.001D;
+                }
+
+                priority *= priorityService.getMultiplier(
+                        segmentVoiceToBeSynthesized.getWiki(),
+                        segmentVoiceToBeSynthesized.getPage(),
+                        segmentVoiceToBeSynthesized.getPageSegment(),
+                        segmentVoiceToBeSynthesized.getPageSegmentVoice(),
+                        segmentVoiceToBeSynthesized.getVoice()
+                );
+
+                return priority;
+            }
+
             @Override
             public int compare(SegmentVoiceToBeSynthesized o1, SegmentVoiceToBeSynthesized o2) {
-
-                int ret;
-
-                // lower segment index in page is more prioritized
-                ret = Integer.compare(o1.getSegment().getLowestIndexAtSegmentation(), o2.getSegment().getLowestIndexAtSegmentation());
-                if (ret != 0) {
-                    return ret;
+                Double priority1 = prioritiesCache.get(o1);
+                if (priority1 == null) {
+                    priority1 = calculatePriority(o1);
+                    prioritiesCache.put(o1, priority1);
                 }
 
-                // no synthesized voice is more prioritized
-                if (o1.getSegmentVoice() == null && o2.getSegmentVoice() != null) {
-                    return -1;
-                } else if (o2.getSegmentVoice() == null && o1.getSegmentVoice() != null) {
-                    return 1;
+                Double priority2 = prioritiesCache.get(o2);
+                if (priority2 == null) {
+                    priority2 = calculatePriority(o2);
+                    prioritiesCache.put(o2, priority2);
                 }
 
-                // pages that was segmented a long time ago is more prioritized
-                ret = o1.getPage().getTimestampSegmented().compareTo(o2.getPage().getTimestampSegmented());
-                if (ret != 0) {
-                    return ret;
+                int ret = Double.compare(priority2, priority1);
+
+                if (ret == 0) {
+                    // pages that was segmented a long time ago is more prioritized
+                    ret = o1.getPage().getTimestampSegmented().compareTo(o2.getPage().getTimestampSegmented());
                 }
 
                 return ret;

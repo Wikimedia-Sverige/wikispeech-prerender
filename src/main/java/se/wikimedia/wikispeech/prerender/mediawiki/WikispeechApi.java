@@ -18,7 +18,6 @@ import se.wikimedia.wikispeech.prerender.Collector;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

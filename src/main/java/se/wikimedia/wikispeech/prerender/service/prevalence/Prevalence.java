@@ -84,16 +84,16 @@ public class Prevalence extends AbstractLifecycle implements SmartLifecycle {
     }
 
     private void initializePrevalence() throws Exception {
-        CreateWiki createWiki = new CreateWiki(
-                SwedishWikipedia.CONSUMER_URL_SV_WIKIPEDIA,
-                "Svenska Wikipedia",
-                Duration.ofDays(30),
-                "sv"
-        );
-        createWiki.addLanguageVoice("sv", "stts_sv_nst-hsmm");
-        createWiki.getPollRecentChangesNamespaces().add(0);
-        createWiki.getPollRecentChangesNamespaces().add(100);
-        execute(createWiki);
+//        CreateWiki createWiki = new CreateWiki(
+//                SwedishWikipedia.CONSUMER_URL_SV_WIKIPEDIA,
+//                "Svenska Wikipedia",
+//                Duration.ofDays(30),
+//                "sv"
+//        );
+//        createWiki.addLanguageVoice("sv", "stts_sv_nst-hsmm");
+//        createWiki.getPollRecentChangesNamespaces().add(0);
+//        createWiki.getPollRecentChangesNamespaces().add(100);
+//        execute(createWiki);
     }
 
 

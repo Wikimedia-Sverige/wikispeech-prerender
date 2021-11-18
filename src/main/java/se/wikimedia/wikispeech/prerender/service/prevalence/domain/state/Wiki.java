@@ -14,6 +14,8 @@ public class Wiki implements Serializable {
 
     private String name;
     private String consumerUrl;
+
+    private Page mainPage;
     private Map<String, Page> pagesByTitle = new HashMap<>();
 
     private Duration maximumSynthesizedVoiceAge = Duration.ofDays(30);

@@ -1,8 +1,8 @@
 package se.wikimedia.wikispeech.prerender.site;
 
 public class EnglishWikipedia {
-//
-//    public static final String CONSUMER_URL_EN_WIKIPEDIA = "https://en.wikipedia.org/w";
+
+    public static final String CONSUMER_URL_EN_WIKIPEDIA = "https://en.wikipedia.org/w";
 //
 //    @Override
 //    public String getName() {

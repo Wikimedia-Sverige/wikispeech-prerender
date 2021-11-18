@@ -3,6 +3,7 @@ package se.wikimedia.wikispeech.prerender;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import se.wikimedia.wikispeech.prerender.service.PriorityService;
 import se.wikimedia.wikispeech.prerender.service.SynthesizeService;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
@@ -17,7 +18,8 @@ import java.util.*;
 
 public class TestGatherCandidatesQueryComparator {
 
-    private Comparator<SegmentVoiceToBeSynthesized> comparator = new SegmentVoiceToBeSynthesizedComparator();
+    private PriorityService priorityService;
+    private Comparator<SegmentVoiceToBeSynthesized> comparator;
 
     private Random random;
 
@@ -26,6 +28,9 @@ public class TestGatherCandidatesQueryComparator {
         long seed = System.currentTimeMillis();
         random = new Random(seed);
         System.out.println("Using random seed " + seed);
+
+        priorityService = new PriorityService();
+        comparator  = new SegmentVoiceToBeSynthesizedComparator(priorityService);
     }
 
     @Test
@@ -74,6 +79,19 @@ public class TestGatherCandidatesQueryComparator {
                     wiki, page, segment, new PageSegmentVoice(), language, voice
             ));
         }
+        {
+            Page page = new Page();
+            page.setTitle("Main_Page");
+            page.setPriority(10F);
+            page.setTimestampSegmented(LocalDateTime.parse("2021-12-13T11:00:00"));
+
+            PageSegment segment = new PageSegment();
+            segment.setHash(new byte[]{4});
+
+            list.add(new SegmentVoiceToBeSynthesized(
+                    wiki, page, segment, new PageSegmentVoice(), language, voice
+            ));
+        }
         // todo test query
 //        {
 //            Page page = new Page();
@@ -91,9 +109,10 @@ public class TestGatherCandidatesQueryComparator {
         for (int i = 0; i<10; i++) {
             Collections.shuffle(list, random);
             list.sort(comparator);
-            Assert.assertEquals("Title 1", list.get(0).getPage().getTitle());
-            Assert.assertEquals("Title 2", list.get(1).getPage().getTitle());
-            Assert.assertEquals("Title 3", list.get(2).getPage().getTitle());
+            Assert.assertEquals("Main_Page", list.get(0).getPage().getTitle());
+            Assert.assertEquals("Title 1", list.get(1).getPage().getTitle());
+            Assert.assertEquals("Title 2", list.get(2).getPage().getTitle());
+            Assert.assertEquals("Title 3", list.get(3).getPage().getTitle());
         }
     }
 

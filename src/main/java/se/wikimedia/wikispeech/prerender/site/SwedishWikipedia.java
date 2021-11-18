@@ -1,13 +1,44 @@
 package se.wikimedia.wikispeech.prerender.site;
 
 
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
+
 /**
  * Gathers the titles of the 5000 most edited pages.
  */
 public class SwedishWikipedia  {
 
     public static final String CONSUMER_URL_SV_WIKIPEDIA = "https://sv.wikipedia.org/w";
-//
+
+    public static double calculatePriority(
+            Wiki wiki,
+            Page page,
+            PageSegment pageSegment,
+            PageSegmentVoice pageSegmentVoice,
+            String voice
+    ) {
+        double priority = 1d;
+        if ("Portal:Huvudsida".equals(page.getTitle())) {
+            priority *= 10d;
+        }
+
+        if (pageSegmentVoice != null && pageSegmentVoice.getFailedAttempts() != null && !pageSegmentVoice.getFailedAttempts().isEmpty()) {
+            priority /= pageSegmentVoice.getFailedAttempts().size();
+        }
+
+        priority += 1d - Math.min(10000, pageSegment.getLowestIndexAtSegmentation())/10000d;
+
+
+
+        return priority;
+    }
+
+
+
+    //
 //    @Override
 //    public String getName() {
 //        return "Svenska Wikipedia";

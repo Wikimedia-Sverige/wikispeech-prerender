@@ -15,9 +15,11 @@ public class Page implements Serializable {
     private String title;
     private List<PageSegment> segments = new ArrayList<>();
 
+    private float priority = 1F;
+
+    /** null means never segmented */
     private LocalDateTime timestampSegmented;
     private Long revisionAtSegmentation;
     private String languageAtSegmentation;
-
 
 }

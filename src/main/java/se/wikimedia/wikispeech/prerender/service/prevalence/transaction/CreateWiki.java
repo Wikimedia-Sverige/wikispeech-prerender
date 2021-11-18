@@ -29,13 +29,6 @@ public class CreateWiki implements TransactionWithQuery<Root, Wiki> {
     public CreateWiki() {
     }
 
-    public CreateWiki(String consumerUrl, String name, Duration maximumSynthesizedVoiceAge, String defaultLanguage) {
-        this.consumerUrl = consumerUrl;
-        this.name = name;
-        this.maximumSynthesizedVoiceAge = maximumSynthesizedVoiceAge;
-        this.defaultLanguage = defaultLanguage;
-    }
-
     @Override
     public Wiki executeAndQuery(Root root, Date date) throws Exception {
         Wiki wiki = new Wiki();
@@ -43,7 +36,18 @@ public class CreateWiki implements TransactionWithQuery<Root, Wiki> {
         wiki.setName(name);
         wiki.setMaximumSynthesizedVoiceAge(maximumSynthesizedVoiceAge);
         wiki.setDefaultLanguage(defaultLanguage);
-        wiki.setVoicesPerLanguage(voicesPerLanguage);
+
+        if (voicesPerLanguage != null) {
+            wiki.setVoicesPerLanguage(new HashMap<>(voicesPerLanguage.size()));
+            for (Map.Entry<String, Set<String>> entry : voicesPerLanguage.entrySet()) {
+                Set<String> voices = new HashSet<>(entry.getValue().size());
+                wiki.getVoicesPerLanguage().put(root.getInternedLanguages().intern(entry.getKey()), voices);
+                for (String voice : entry.getValue()) {
+                    voices.add(root.getInternedVoices().intern(voice));
+                }
+            }
+        }
+
         wiki.setPollRecentChangesNamespaces(pollRecentChangesNamespaces);
         if (timestampOfLastRecentChangesItemProcessed != null) {
             wiki.setTimestampOfLastRecentChangesItemProcessed(timestampOfLastRecentChangesItemProcessed);
@@ -52,10 +56,6 @@ public class CreateWiki implements TransactionWithQuery<Root, Wiki> {
         }
         root.getWikiByConsumerUrl().put(consumerUrl, wiki);
         return wiki;
-    }
-
-    public void addLanguageVoice(String language, String voice) {
-        getVoicesPerLanguage().computeIfAbsent(language, k -> new HashSet<>()).add(voice);
     }
 
 }
