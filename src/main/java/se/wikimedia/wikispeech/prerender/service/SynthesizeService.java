@@ -55,7 +55,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                 SynthesizeCommand command = queue.poll();
                 if (command == null) {
                     try {
-                        log.info("Queue is empty. Waiting for more commands.");
+                        log.trace("Queue is empty. Waiting for more commands.");
                         Thread.sleep(1000);
                     } catch (InterruptedException ie) {
                         log.info("Interrupted while waiting for queue", ie);

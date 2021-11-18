@@ -60,7 +60,7 @@ public class SegmentService extends ExecutorService implements SmartLifecycle {
         QueueItem queueItem = queue.poll();
         if (queueItem == null) {
             try {
-                log.debug("Waiting for queue to be populated...");
+                log.trace("Waiting for queue to be populated...");
                 Thread.sleep(1000);
             } catch (InterruptedException ie) {
                 log.info("Interrupted while waiting for data to arrive on the queue!", ie);
