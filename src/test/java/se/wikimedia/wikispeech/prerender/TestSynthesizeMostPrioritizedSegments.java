@@ -109,15 +109,15 @@ public class TestSynthesizeMostPrioritizedSegments {
 
         PriorityService priorityService = new PriorityService();
 
-        List<SynthesizeService.SynthesizeCommand> list = prevalence.execute(new SynthesizeService.GatherCandidatesQuery(priorityService, 100));
+        List<SynthesizeService.GatherCandidatesQuery.CandidateToBeSynthesized> list = prevalence.execute(new SynthesizeService.GatherCandidatesQuery());
         Assert.assertEquals(4, list.size());
 
-        Assert.assertEquals("Title 1", list.get(0).getTitle());
-        Assert.assertEquals("Title 2", list.get(1).getTitle());
-        Assert.assertArrayEquals(new byte[]{2, 1}, list.get(1).getHash());
-        Assert.assertEquals("Title 2", list.get(2).getTitle());
-        Assert.assertArrayEquals(new byte[]{2, 2}, list.get(2).getHash());
-        Assert.assertEquals("Title 3", list.get(3).getTitle());
+        Assert.assertEquals("Title 1", list.get(0).getPage().getTitle());
+        Assert.assertEquals("Title 2", list.get(1).getPage().getTitle());
+        Assert.assertArrayEquals(new byte[]{2, 1}, list.get(1).getPageSegment().getHash());
+        Assert.assertEquals("Title 2", list.get(2).getPage().getTitle());
+        Assert.assertArrayEquals(new byte[]{2, 2}, list.get(2).getPageSegment().getHash());
+        Assert.assertEquals("Title 3", list.get(3).getPage().getTitle());
     }
 
 }

@@ -17,12 +17,14 @@ public class PriorityQueue<T> {
         this.list = new ArrayList<>(maximumSize);
     }
 
+    private int added = 0;
+
     /**
      * @param item
      * @return Item removed, if applicable
      */
     public T add(T item) {
-        // todo binary search find index
+        added++;
         int index = Collections.binarySearch(list, item, comparator);
         if (index < 0) {
             index *= -1;

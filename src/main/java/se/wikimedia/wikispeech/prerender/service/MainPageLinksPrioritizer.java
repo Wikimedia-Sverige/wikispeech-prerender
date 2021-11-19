@@ -1,0 +1,94 @@
+package se.wikimedia.wikispeech.prerender.service;
+
+import lombok.Data;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.prevayler.Query;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import se.wikimedia.wikispeech.prerender.Collector;
+import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
+import se.wikimedia.wikispeech.prerender.site.ScrapePageForWikiLinks;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+@Service
+@EnableScheduling
+public class MainPageLinksPrioritizer {
+
+    private final Logger log = LogManager.getLogger(getClass());
+
+    private final Prevalence prevalence;
+    private final PriorityService priorityService;
+    private final SegmentService segmentService;
+
+    public MainPageLinksPrioritizer(
+            @Autowired Prevalence prevalence,
+            @Autowired PriorityService priorityService,
+            @Autowired SegmentService segmentService
+    ) {
+        this.prevalence = prevalence;
+        this.priorityService = priorityService;
+        this.segmentService = segmentService;
+    }
+
+    private final Map<String, Long> lastKnownRevisionAtSegmentationByConsumerUrl = new HashMap<>();
+
+    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES, initialDelay = 0)
+    public void run() throws Exception {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime future = now.plus(Duration.ofDays(1));
+        for (Wiki wiki : prevalence.execute(new Query<Root, Set<Wiki>>() {
+            @Override
+            public Set<Wiki> query(Root root, Date date) throws Exception {
+                Set<Wiki> wikis = new HashSet<>(root.getWikiByConsumerUrl().values());
+                wikis.removeIf( w -> w.getMainPage() == null);
+                return wikis;
+            }
+        })) {
+            Long lastKnownRevisionAtSegmentation = lastKnownRevisionAtSegmentationByConsumerUrl.get(wiki.getConsumerUrl());
+            if (lastKnownRevisionAtSegmentation == null || lastKnownRevisionAtSegmentation < wiki.getMainPage().getRevisionAtSegmentation()) {
+                log.info("Setting priority for links in {} of {}", wiki.getMainPage().getTitle(), wiki.getName());
+                ScrapePageForWikiLinks scraper = new ScrapePageForWikiLinks();
+                scraper.setConsumerUrl(wiki.getConsumerUrl());
+                scraper.setTitle(wiki.getMainPage().getTitle());
+                scraper.setCollector(new Collector<String>() {
+                    @Override
+                    public boolean collect(String title) {
+                        priorityService.put(
+                                new ConsumerUrlAndTitle(wiki.getConsumerUrl(), title),
+                                new PriorityService.PagePrioritySetting(
+                                        now, future, 5F,
+                                        wiki.getConsumerUrl(), title
+                                )
+                        );
+                        segmentService.queue(wiki.getConsumerUrl(), title);
+                        return true;
+                    }
+                });
+                scraper.execute();
+                lastKnownRevisionAtSegmentationByConsumerUrl.put(wiki.getConsumerUrl(), wiki.getMainPage().getRevisionAtSegmentation());
+            }
+        }
+    }
+
+    @Data
+    private static class ConsumerUrlAndTitle {
+        private String consumerUrl;
+        private String title;
+
+        public ConsumerUrlAndTitle(String consumerUrl, String title) {
+            this.consumerUrl = consumerUrl;
+            this.title = title;
+        }
+    }
+
+}

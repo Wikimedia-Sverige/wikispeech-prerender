@@ -59,26 +59,28 @@ public class RecentChangesService extends ExecutorService implements SmartLifecy
             log.error("Failed to gather wikis", e);
             return;
         }
-        CountDownLatch doneLatch = new CountDownLatch(wikis.size());
-        for (Wiki wiki : wikis) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        pollExhaustive(wiki);
-                    } catch (Exception e) {
-                        log.error("Failed polling recent changes for {}", wiki.getName(), e);
-                    } finally {
-                        doneLatch.countDown();
+        if (!wikis.isEmpty()) {
+            CountDownLatch doneLatch = new CountDownLatch(wikis.size());
+            for (Wiki wiki : wikis) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            pollExhaustive(wiki);
+                        } catch (Exception e) {
+                            log.error("Failed polling recent changes for {}", wiki.getName(), e);
+                        } finally {
+                            doneLatch.countDown();
+                        }
                     }
-                }
 
-            }).start();
-        }
-        try {
-            doneLatch.await();
-        } catch (InterruptedException ie) {
-            log.info("Interrupted while awaiting threads to finish", ie);
+                }).start();
+            }
+            try {
+                doneLatch.await();
+            } catch (InterruptedException ie) {
+                log.info("Interrupted while awaiting threads to finish", ie);
+            }
         }
 
         LocalDateTime pauseEnds = LocalDateTime.now().plus(delayBetweenRequests);

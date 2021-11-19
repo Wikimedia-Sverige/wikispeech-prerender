@@ -4,13 +4,12 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import se.wikimedia.wikispeech.prerender.service.PriorityService;
-import se.wikimedia.wikispeech.prerender.service.SynthesizeService;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
-import se.wikimedia.wikispeech.prerender.service.SynthesizeService.GatherCandidatesQuery.SegmentVoiceToBeSynthesized;
+import se.wikimedia.wikispeech.prerender.service.SynthesizeService.GatherCandidatesQuery.CandidateToBeSynthesized;
 import se.wikimedia.wikispeech.prerender.service.SynthesizeService.GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator;
 
 import java.time.LocalDateTime;
@@ -19,7 +18,7 @@ import java.util.*;
 public class TestGatherCandidatesQueryComparator {
 
     private PriorityService priorityService;
-    private Comparator<SegmentVoiceToBeSynthesized> comparator;
+    private Comparator<CandidateToBeSynthesized> comparator;
 
     private Random random;
 
@@ -35,7 +34,7 @@ public class TestGatherCandidatesQueryComparator {
 
     @Test
     public void test() {
-        List<SegmentVoiceToBeSynthesized> list = new ArrayList<>();
+        List<CandidateToBeSynthesized> list = new ArrayList<>();
 
         String language = null;
         String voice = null;
@@ -51,7 +50,7 @@ public class TestGatherCandidatesQueryComparator {
             PageSegment segment = new PageSegment();
             segment.setHash(new byte[]{1});
 
-            list.add(new SegmentVoiceToBeSynthesized(
+            list.add(new CandidateToBeSynthesized(
                     wiki, page, segment, null, language, voice
             ));
         }
@@ -63,7 +62,7 @@ public class TestGatherCandidatesQueryComparator {
             PageSegment segment = new PageSegment();
             segment.setHash(new byte[]{2});
 
-            list.add(new SegmentVoiceToBeSynthesized(
+            list.add(new CandidateToBeSynthesized(
                     wiki, page, segment, null, language, voice
             ));
         }
@@ -75,7 +74,7 @@ public class TestGatherCandidatesQueryComparator {
             PageSegment segment = new PageSegment();
             segment.setHash(new byte[]{3});
 
-            list.add(new SegmentVoiceToBeSynthesized(
+            list.add(new CandidateToBeSynthesized(
                     wiki, page, segment, new PageSegmentVoice(), language, voice
             ));
         }
@@ -88,7 +87,7 @@ public class TestGatherCandidatesQueryComparator {
             PageSegment segment = new PageSegment();
             segment.setHash(new byte[]{4});
 
-            list.add(new SegmentVoiceToBeSynthesized(
+            list.add(new CandidateToBeSynthesized(
                     wiki, page, segment, new PageSegmentVoice(), language, voice
             ));
         }

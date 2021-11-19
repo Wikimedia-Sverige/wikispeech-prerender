@@ -1,6 +1,10 @@
 package se.wikimedia.wikispeech.prerender.service;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
@@ -8,13 +12,20 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSeg
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class PriorityService {
 
-    private Set<PrioritySetting> settings = new HashSet<>();
+    private final Logger log = LogManager.getLogger(getClass());
+
+    private final Map<Object, PrioritySetting> settings = new ConcurrentHashMap<>();
+
+    public void put(Object key, PrioritySetting prioritySetting) {
+        settings.put(key, prioritySetting);
+    }
 
     public float getMultiplier(
             Wiki wiki,
@@ -32,7 +43,7 @@ public class PriorityService {
                         && setting.getTitle().equals(page.getTitle());
             }
         };
-        for (PrioritySetting prioritySetting : settings) {
+        for (PrioritySetting prioritySetting : new HashSet<>(settings.values())) {
             if (prioritySetting.getFrom().isBefore(now)
                     && prioritySetting.getTo().isAfter(now)
                     && prioritySetting.accept(visitor)) {
@@ -45,8 +56,14 @@ public class PriorityService {
     }
 
 
+    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
     public void expunge() {
-        settings.removeIf(prioritySetting -> prioritySetting.getTo().isBefore(LocalDateTime.now()));
+        log.info("Expunging...");
+        for (Map.Entry<Object, PrioritySetting> entry : new HashSet<>(settings.entrySet())) {
+            if (entry.getValue().getTo().isBefore(LocalDateTime.now())) {
+                settings.remove(entry.getKey());
+            }
+        }
     }
 
     public static interface PrioritySettingVisitor<R> {
@@ -59,13 +76,32 @@ public class PriorityService {
         private LocalDateTime to;
         private float multiplier;
 
+        public PrioritySetting() {
+        }
+
+        public PrioritySetting(LocalDateTime from, LocalDateTime to, float multiplier) {
+            this.from = from;
+            this.to = to;
+            this.multiplier = multiplier;
+        }
+
         public abstract <R> R accept(PrioritySettingVisitor<R> visitor);
     }
 
     @Data
+    @EqualsAndHashCode(callSuper = true)
     public static class PagePrioritySetting extends PrioritySetting {
         private String consumerUrl;
         private String title;
+
+        public PagePrioritySetting() {
+        }
+
+        public PagePrioritySetting(LocalDateTime from, LocalDateTime to, float multiplier, String consumerUrl, String title) {
+            super(from, to, multiplier);
+            this.consumerUrl = consumerUrl;
+            this.title = title;
+        }
 
         @Override
         public <R> R accept(PrioritySettingVisitor<R> visitor) {

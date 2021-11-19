@@ -26,4 +26,13 @@ public class Wiki implements Serializable {
     private OffsetDateTime timestampOfLastRecentChangesItemProcessed;
     private List<Integer> pollRecentChangesNamespaces = new ArrayList<>();
 
+    @Override
+    public boolean equals(Object o) {
+        return this == o;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(consumerUrl);
+    }
 }
