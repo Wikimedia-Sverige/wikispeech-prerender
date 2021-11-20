@@ -60,6 +60,7 @@ public class AddSegmentVoiceFailure implements Transaction<Root> {
                     pageSegmentVoice.setFailedAttempts(new LinkedHashMap<>());
                 }
                 pageSegmentVoice.getFailedAttempts().put(Prevalence.toLocalDateTime(date), stacktrace);
+                return;
             }
         }
         throw new RuntimeException();
