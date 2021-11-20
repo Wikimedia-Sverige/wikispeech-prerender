@@ -33,6 +33,7 @@ public class AddSegmentVoiceFailure implements Transaction<Root> {
         this.title = title;
         this.hash = hash;
         this.voice = voice;
+        this.stacktrace = stacktrace;
     }
 
     @Override
