@@ -123,7 +123,7 @@ public class MainController {
         public List<WikispeechApi.Segment> doGet(ConsumerUrlAndTitle key) {
             List<WikispeechApi.Segment> segments = new ArrayList<>(1000);
             try {
-                wikispeechApi.segment(key.getConsumerUrl(), key.getConsumerUrl(), new Collector<WikispeechApi.Segment>() {
+                wikispeechApi.segment(key.getConsumerUrl(), key.getTitle(), new Collector<WikispeechApi.Segment>() {
                     @Override
                     public boolean collect(WikispeechApi.Segment collected) {
                         segments.add(collected);
@@ -142,7 +142,7 @@ public class MainController {
                 return segment;
             }
         }
-        throw new RuntimeException();
+        return null;
     }
 
     @Data
@@ -180,8 +180,7 @@ public class MainController {
     )
     public ResponseEntity<SynthesisErrorsResponse> getSynthesisErrors(
             @RequestParam(required = false, defaultValue = "100") int limit,
-            @RequestParam(required = false, defaultValue = "0") int startOffset,
-            @RequestParam(required = false, defaultValue = "true") boolean segment
+            @RequestParam(required = false, defaultValue = "0") int startOffset
     ) throws Exception {
         List<PageSegmentVoiceReference> references = prevalence.execute(new Query<Root, List<PageSegmentVoiceReference>>() {
             @Override
