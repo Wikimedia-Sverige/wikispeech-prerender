@@ -164,7 +164,7 @@ public class MainController {
         SynthesisErrorsResponse response = new SynthesisErrorsResponse();
         response.setTotalHits(references.size());
         response.setErrors(new ArrayList<>(limit));
-        for (PageSegmentVoiceReference reference : references.subList(startOffset, startOffset+limit)) {
+        for (PageSegmentVoiceReference reference : references.subList(startOffset, Math.min(startOffset + limit, references.size() - 1))) {
             response.getErrors().add(new SynthesisErrorsResponse.SynthesisError(
                     reference.getWiki().getConsumerUrl(),
                     reference.getPage().getTitle(),
