@@ -136,6 +136,7 @@ public class MainController {
             return segments;
         }
     };
+
     private WikispeechApi.Segment getSegment(String consumerUrl, String title, byte[] hash) throws DecoderException {
         for (WikispeechApi.Segment segment : segments.get(new ConsumerUrlAndTitle(consumerUrl, title))) {
             if (Arrays.equals(Hex.decodeHex(segment.getHash()), hash)) {
@@ -226,4 +227,20 @@ public class MainController {
         return ResponseEntity.ok(response);
     }
 
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "page",
+            produces = "application/json"
+    )
+    public ResponseEntity<Page> getSynthesisErrors(
+            @RequestParam String consumerUrl,
+            @RequestParam String title
+    ) throws Exception {
+        return ResponseEntity.ok(prevalence.execute(new Query<Root, Page>() {
+            @Override
+            public Page query(Root root, Date date) throws Exception {
+                return root.getWikiByConsumerUrl().get(consumerUrl).getPagesByTitle().get(title);
+            }
+        }));
+    }
 }
