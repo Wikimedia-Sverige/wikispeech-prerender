@@ -2,21 +2,29 @@ package se.wikimedia.wikispeech.prerender.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.Data;
+import org.prevayler.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.service.SegmentService;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 import se.wikimedia.wikispeech.prerender.service.prevalence.query.GetWiki;
+import se.wikimedia.wikispeech.prerender.service.prevalence.query.PageSegmentVoiceReference;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.*;
 import se.wikimedia.wikispeech.prerender.site.WikiResolver;
 
+import javax.management.ObjectName;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -90,5 +98,82 @@ public class MainController {
         return ResponseEntity.ok(objectMapper.writeValueAsString(wiki));
     }
 
+    @Data
+    public static class SynthesisErrorsResponse {
+        private int totalHits;
+        private List<SynthesisError> errors;
+
+        @Data
+        public static class SynthesisError {
+            private String consumerUrl;
+            private String title;
+            private byte[] hash;
+            private String voice;
+            private LinkedHashMap<LocalDateTime, String> failedAttempts;
+
+            public SynthesisError() {
+            }
+
+            public SynthesisError(String consumerUrl, String title, byte[] hash, String voice, LinkedHashMap<LocalDateTime, String> failedAttempts) {
+                this.consumerUrl = consumerUrl;
+                this.title = title;
+                this.hash = hash;
+                this.voice = voice;
+                this.failedAttempts = failedAttempts;
+            }
+        }
+    }
+
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "synthesis/errors",
+            produces = "application/json"
+    )
+    public ResponseEntity<SynthesisErrorsResponse> getSynthesisErrors(
+            @RequestParam(required = false, defaultValue = "100") int limit,
+            @RequestParam(required = false, defaultValue = "0") int startOffset
+    ) throws Exception {
+        List<PageSegmentVoiceReference> references = prevalence.execute(new Query<Root, List<PageSegmentVoiceReference>>() {
+            @Override
+            public List<PageSegmentVoiceReference> query(Root root, Date date) throws Exception {
+                List<PageSegmentVoiceReference> references = new ArrayList<>(1000);
+                for (Wiki wiki : root.getWikiByConsumerUrl().values()) {
+                    for (Page page : wiki.getPagesByTitle().values()) {
+                        for (PageSegment pageSegment : page.getSegments()) {
+                            for (PageSegmentVoice pageSegmentVoice : pageSegment.getSynthesizedVoices()) {
+                                if (pageSegmentVoice.getFailedAttempts() != null
+                                        && !pageSegmentVoice.getFailedAttempts().isEmpty()) {
+                                    references.add(new PageSegmentVoiceReference(
+                                            wiki, page, pageSegment, pageSegmentVoice
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                return references;
+            }
+        });
+        references.sort(new Comparator<PageSegmentVoiceReference>() {
+            @Override
+            public int compare(PageSegmentVoiceReference o1, PageSegmentVoiceReference o2) {
+                return o1.getPageSegmentVoice().getFailedAttempts().keySet().iterator().next()
+                        .compareTo(o2.getPageSegmentVoice().getFailedAttempts().keySet().iterator().next());
+            }
+        });
+        SynthesisErrorsResponse response = new SynthesisErrorsResponse();
+        response.setTotalHits(references.size());
+        response.setErrors(new ArrayList<>(limit));
+        for (PageSegmentVoiceReference reference : references.subList(startOffset, startOffset+limit)) {
+            response.getErrors().add(new SynthesisErrorsResponse.SynthesisError(
+                    reference.getWiki().getConsumerUrl(),
+                    reference.getPage().getTitle(),
+                    reference.getPageSegment().getHash(),
+                    reference.getPageSegmentVoice().getVoice(),
+                    reference.getPageSegmentVoice().getFailedAttempts()
+            ));
+        }
+        return ResponseEntity.ok(response);
+    }
 
 }
