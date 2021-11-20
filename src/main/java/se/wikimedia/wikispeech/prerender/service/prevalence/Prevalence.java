@@ -56,7 +56,7 @@ public class Prevalence extends AbstractLifecycle implements SmartLifecycle {
         }
     }
 
-    public void execute(Transaction<Root> transaction) throws Exception {
+    public void execute(Transaction<Root> transaction) {
 //        if (log.isDebugEnabled()) {
 //            log.debug("Executing transaction {}", transaction);
 //        }

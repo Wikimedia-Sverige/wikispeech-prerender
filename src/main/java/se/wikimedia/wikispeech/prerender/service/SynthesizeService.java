@@ -17,8 +17,11 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
+import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.AddSegmentVoiceFailure;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateOrUpdatePageSegmentVoice;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -161,7 +164,20 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                     ));
         } catch (Exception e) {
             log.error("Failed to synthesize {}", command, e);
-            // todo add failure to {@link PageSegmentVoice}
+            StringWriter stacktrace = new StringWriter(4096);
+            stacktrace.append(e.getMessage());
+            stacktrace.append("\n");
+            PrintWriter pw = new PrintWriter(stacktrace);
+            e.printStackTrace(pw);
+            pw.flush();
+            prevalence.execute(
+                    new AddSegmentVoiceFailure(
+                            command.getConsumerUrl(),
+                            command.getTitle(),
+                            command.getHash(),
+                            command.getVoice(),
+                            stacktrace.toString()
+                    ));
         }
     }
 
