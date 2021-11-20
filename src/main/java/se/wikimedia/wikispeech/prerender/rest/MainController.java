@@ -5,11 +5,16 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.Data;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.prevayler.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import se.wikimedia.wikispeech.prerender.Collector;
+import se.wikimedia.wikispeech.prerender.LocalCache;
 import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
+import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.service.SegmentService;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
@@ -23,6 +28,7 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.*;
 import se.wikimedia.wikispeech.prerender.site.WikiResolver;
 
 import javax.management.ObjectName;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -33,6 +39,7 @@ import java.util.*;
 public class MainController {
 
     private final Prevalence prevalence;
+    private final WikispeechApi wikispeechApi;
     private final PageApi pageApi;
     private final SegmentService segmentService;
     private final ObjectMapper objectMapper;
@@ -40,10 +47,12 @@ public class MainController {
     public MainController(
             @Autowired Prevalence prevalence,
             @Autowired SegmentService segmentService,
-            @Autowired PageApi pageApi
+            @Autowired PageApi pageApi,
+            @Autowired WikispeechApi wikispeechApi
     ) {
         this.prevalence = prevalence;
         this.pageApi = pageApi;
+        this.wikispeechApi = wikispeechApi;
         this.segmentService = segmentService;
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
@@ -99,6 +108,44 @@ public class MainController {
     }
 
     @Data
+    private static class ConsumerUrlAndTitle {
+        private String consumerUrl;
+        private String title;
+
+        public ConsumerUrlAndTitle(String consumerUrl, String title) {
+            this.consumerUrl = consumerUrl;
+            this.title = title;
+        }
+    }
+
+    private LocalCache<ConsumerUrlAndTitle, List<WikispeechApi.Segment>> segments = new LocalCache<ConsumerUrlAndTitle, List<WikispeechApi.Segment>>(1000) {
+        @Override
+        public List<WikispeechApi.Segment> doGet(ConsumerUrlAndTitle key) {
+            List<WikispeechApi.Segment> segments = new ArrayList<>(1000);
+            try {
+                wikispeechApi.segment(key.getConsumerUrl(), key.getConsumerUrl(), new Collector<WikispeechApi.Segment>() {
+                    @Override
+                    public boolean collect(WikispeechApi.Segment collected) {
+                        segments.add(collected);
+                        return true;
+                    }
+                });
+            } catch (IOException ioe) {
+                throw new RuntimeException(ioe);
+            }
+            return segments;
+        }
+    };
+    private WikispeechApi.Segment getSegment(String consumerUrl, String title, byte[] hash) throws DecoderException {
+        for (WikispeechApi.Segment segment : segments.get(new ConsumerUrlAndTitle(consumerUrl, title))) {
+            if (Arrays.equals(Hex.decodeHex(segment.getHash()), hash)) {
+                return segment;
+            }
+        }
+        throw new RuntimeException();
+    }
+
+    @Data
     public static class SynthesisErrorsResponse {
         private int totalHits;
         private List<SynthesisError> errors;
@@ -110,16 +157,18 @@ public class MainController {
             private byte[] hash;
             private String voice;
             private LinkedHashMap<LocalDateTime, String> failedAttempts;
+            private WikispeechApi.Segment segment;
 
             public SynthesisError() {
             }
 
-            public SynthesisError(String consumerUrl, String title, byte[] hash, String voice, LinkedHashMap<LocalDateTime, String> failedAttempts) {
+            public SynthesisError(String consumerUrl, String title, byte[] hash, String voice, LinkedHashMap<LocalDateTime, String> failedAttempts, WikispeechApi.Segment segment) {
                 this.consumerUrl = consumerUrl;
                 this.title = title;
                 this.hash = hash;
                 this.voice = voice;
                 this.failedAttempts = failedAttempts;
+                this.segment = segment;
             }
         }
     }
@@ -131,7 +180,8 @@ public class MainController {
     )
     public ResponseEntity<SynthesisErrorsResponse> getSynthesisErrors(
             @RequestParam(required = false, defaultValue = "100") int limit,
-            @RequestParam(required = false, defaultValue = "0") int startOffset
+            @RequestParam(required = false, defaultValue = "0") int startOffset,
+            @RequestParam(required = false, defaultValue = "true") boolean segment
     ) throws Exception {
         List<PageSegmentVoiceReference> references = prevalence.execute(new Query<Root, List<PageSegmentVoiceReference>>() {
             @Override
@@ -170,7 +220,8 @@ public class MainController {
                     reference.getPage().getTitle(),
                     reference.getPageSegment().getHash(),
                     reference.getPageSegmentVoice().getVoice(),
-                    reference.getPageSegmentVoice().getFailedAttempts()
+                    reference.getPageSegmentVoice().getFailedAttempts(),
+                    getSegment(reference.getWiki().getConsumerUrl(), reference.getPage().getTitle(), reference.getPageSegment().getHash())
             ));
         }
         return ResponseEntity.ok(response);
