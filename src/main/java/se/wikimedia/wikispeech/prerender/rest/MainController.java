@@ -149,6 +149,12 @@ public class MainController {
         return null;
     }
 
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "synthesis",
+            produces = "application/json"
+    )
+
     @Data
     public static class SynthesisErrorsResponse {
         private int totalHits;

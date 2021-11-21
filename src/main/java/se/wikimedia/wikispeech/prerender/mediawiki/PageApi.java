@@ -55,6 +55,25 @@ public class PageApi {
         }
     }
 
+    public okhttp3.Headers getHttpHeaders(String consumerUrl, String title) throws IOException {
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(consumerUrl).newBuilder();
+        urlBuilder.addQueryParameter("title", title);
+
+        Request request = new Request.Builder()
+                .head()
+                .url(urlBuilder.build())
+                .build();
+
+        Call call = client.newCall(request);
+        Response response = call.execute();
+
+        if (response.code() != 200) {
+            throw new IOException("Response" + response);
+        }
+
+        return response.headers();
+    }
+
     public PageApi(
             @Autowired OkHttpClient client
     ) {

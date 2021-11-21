@@ -1,6 +1,7 @@
 package se.wikimedia.wikispeech.prerender.service;
 
 import lombok.Data;
+import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.prevayler.Query;
@@ -9,6 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.Collector;
+import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
@@ -17,6 +19,8 @@ import se.wikimedia.wikispeech.prerender.site.ScrapePageForWikiLinks;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -29,18 +33,21 @@ public class MainPageLinksPrioritizer {
     private final Prevalence prevalence;
     private final PriorityService priorityService;
     private final SegmentService segmentService;
+    private final PageApi pageApi;
 
     public MainPageLinksPrioritizer(
             @Autowired Prevalence prevalence,
             @Autowired PriorityService priorityService,
-            @Autowired SegmentService segmentService
+            @Autowired SegmentService segmentService,
+            @Autowired PageApi pageApi
     ) {
         this.prevalence = prevalence;
         this.priorityService = priorityService;
         this.segmentService = segmentService;
+        this.pageApi = pageApi;
     }
 
-    private final Map<String, Long> lastKnownRevisionAtSegmentationByConsumerUrl = new HashMap<>();
+    private final Map<String, OffsetDateTime> lastChangedByWikiConsumerUrl = new HashMap<>();
 
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES, initialDelay = 0)
     public void run() throws Exception {
@@ -54,8 +61,9 @@ public class MainPageLinksPrioritizer {
                 return wikis;
             }
         })) {
-            Long lastKnownRevisionAtSegmentation = lastKnownRevisionAtSegmentationByConsumerUrl.get(wiki.getConsumerUrl());
-            if (lastKnownRevisionAtSegmentation == null || lastKnownRevisionAtSegmentation < wiki.getMainPage().getRevisionAtSegmentation()) {
+            OffsetDateTime lastChanged = OffsetDateTime.parse(pageApi.getHttpHeaders(wiki.getConsumerUrl(), wiki.getMainPage().getTitle()).get("Last-Modified"), DateTimeFormatter.RFC_1123_DATE_TIME);
+            OffsetDateTime previousLastChanged = lastChangedByWikiConsumerUrl.put(wiki.getConsumerUrl(), lastChanged);
+            if (!lastChanged.equals(previousLastChanged)) {
                 log.info("Setting priority for links in {} of {}", wiki.getMainPage().getTitle(), wiki.getName());
                 ScrapePageForWikiLinks scraper = new ScrapePageForWikiLinks();
                 scraper.setConsumerUrl(wiki.getConsumerUrl());
@@ -75,7 +83,7 @@ public class MainPageLinksPrioritizer {
                     }
                 });
                 scraper.execute();
-                lastKnownRevisionAtSegmentationByConsumerUrl.put(wiki.getConsumerUrl(), wiki.getMainPage().getRevisionAtSegmentation());
+
             }
         }
     }
