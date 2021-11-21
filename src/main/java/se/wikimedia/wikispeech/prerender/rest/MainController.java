@@ -217,6 +217,15 @@ public class MainController {
     }
 
     @RequestMapping(
+            method = RequestMethod.DELETE,
+            path = "synthesis/queue",
+            produces = "application/json"
+    )
+    public void clearSynthesisQueue() {
+        synthesizeService.getQueue().clear();
+    }
+
+    @RequestMapping(
             method = RequestMethod.GET,
             path = "synthesis/errors",
             produces = "application/json"
