@@ -27,7 +27,7 @@ public class PriorityService {
         settings.put(key, prioritySetting);
     }
 
-    public float getMultiplier(
+    public PrioritySetting getMultiplier(
             Wiki wiki,
             Page page,
             PageSegment pageSegment,
@@ -35,7 +35,7 @@ public class PriorityService {
             String voice
     ) {
         LocalDateTime now = LocalDateTime.now();
-        float greatestMultiplier = 1F;
+        PrioritySetting greatestMultiplier = null;
         PrioritySettingVisitor<Boolean> visitor = new PrioritySettingVisitor<Boolean>() {
             @Override
             public Boolean visit(PagePrioritySetting setting) {
@@ -47,8 +47,8 @@ public class PriorityService {
             if (prioritySetting.getFrom().isBefore(now)
                     && prioritySetting.getTo().isAfter(now)
                     && prioritySetting.accept(visitor)) {
-                if (prioritySetting.getMultiplier() > greatestMultiplier) {
-                    greatestMultiplier = prioritySetting.getMultiplier();
+                if (greatestMultiplier == null || prioritySetting.getMultiplier() > greatestMultiplier.getMultiplier()) {
+                    greatestMultiplier = prioritySetting;
                 }
             }
         }
@@ -74,12 +74,12 @@ public class PriorityService {
     public abstract static class PrioritySetting {
         private LocalDateTime from;
         private LocalDateTime to;
-        private float multiplier;
+        private double multiplier;
 
         public PrioritySetting() {
         }
 
-        public PrioritySetting(LocalDateTime from, LocalDateTime to, float multiplier) {
+        public PrioritySetting(LocalDateTime from, LocalDateTime to, double multiplier) {
             this.from = from;
             this.to = to;
             this.multiplier = multiplier;
@@ -108,5 +108,79 @@ public class PriorityService {
             return visitor.visit(this);
         }
     }
+
+    @Data
+    public static class CalculatedPriority {
+        private double value;
+        private List<Explanation> explanations;
+     }
+
+    @Data
+    public static class Explanation {
+        private double value;
+        private String expression;
+
+        public Explanation(double value, String expression) {
+            this.value = value;
+            this.expression = expression;
+        }
+    }
+
+    public CalculatedPriority calculatePriority(SynthesizeService.CandidateToBeSynthesized candidateToBeSynthesized, boolean explain) {
+
+        double value = 1D;
+
+        CalculatedPriority priority = new CalculatedPriority();
+        if (explain) {
+            priority.setExplanations(new ArrayList<>());
+            priority.getExplanations().add(new Explanation(1D, "Starting value"));
+        }
+
+        value *= candidateToBeSynthesized.getPage().getPriority();
+        if (explain) {
+            priority.getExplanations().add(new Explanation(value, "multiplied with page priority " + candidateToBeSynthesized.getPage().getPriority()));
+        }
+
+        if (candidateToBeSynthesized.getPageSegmentVoice() != null
+                && candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts() != null
+                && !candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().isEmpty()) {
+            value /= candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size();
+            if (explain) {
+                priority.getExplanations().add(new Explanation(value, "Divided with number of failures " + candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size()));
+            }
+        }
+
+        // lower segment index in page is slightly more prioritized
+        value += 1D - Math.min(1000, candidateToBeSynthesized.getPageSegment().getLowestIndexAtSegmentation()) / 1000D;
+        if (explain) {
+            priority.getExplanations().add(new Explanation(value, "Added priority for page segment index " + candidateToBeSynthesized.getPageSegment().getLowestIndexAtSegmentation()));
+        }
+
+        // no synthesized voice at all is slightly more prioritized
+        if (candidateToBeSynthesized.getPageSegmentVoice() == null) {
+            value += 0.001D;
+            if (explain) {
+                priority.getExplanations().add(new Explanation(value, "Added never previously synthesized priority."));
+            }
+        }
+
+        PrioritySetting multiplier = getMultiplier(
+                candidateToBeSynthesized.getWiki(),
+                candidateToBeSynthesized.getPage(),
+                candidateToBeSynthesized.getPageSegment(),
+                candidateToBeSynthesized.getPageSegmentVoice(),
+                candidateToBeSynthesized.getVoice()
+        );
+        if (multiplier != null) {
+            value *= multiplier.getMultiplier();
+            if (explain) {
+                priority.getExplanations().add(new Explanation(value, "Multiplied with " + multiplier));
+            }
+        }
+
+        priority.setValue(value);
+        return priority;
+    }
+
 
 }

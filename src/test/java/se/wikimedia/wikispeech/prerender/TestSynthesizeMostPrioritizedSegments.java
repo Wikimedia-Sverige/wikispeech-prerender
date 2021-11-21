@@ -109,8 +109,8 @@ public class TestSynthesizeMostPrioritizedSegments {
 
         PriorityService priorityService = new PriorityService();
 
-        List<SynthesizeService.GatherCandidatesQuery.CandidateToBeSynthesized> list = prevalence.execute(new SynthesizeService.GatherCandidatesQuery());
-        list.sort(new SynthesizeService.GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator(new PriorityService()));
+        List<SynthesizeService.CandidateToBeSynthesized> list = prevalence.execute(new SynthesizeService.GatherCandidatesQuery());
+        list.sort(new SynthesizeService.GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator(new PriorityService(), true));
 
         Assert.assertEquals(4, list.size());
 

@@ -9,7 +9,7 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSeg
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
-import se.wikimedia.wikispeech.prerender.service.SynthesizeService.GatherCandidatesQuery.CandidateToBeSynthesized;
+import se.wikimedia.wikispeech.prerender.service.SynthesizeService.CandidateToBeSynthesized;
 import se.wikimedia.wikispeech.prerender.service.SynthesizeService.GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator;
 
 import java.time.LocalDateTime;
@@ -29,7 +29,7 @@ public class TestGatherCandidatesQueryComparator {
         System.out.println("Using random seed " + seed);
 
         priorityService = new PriorityService();
-        comparator  = new SegmentVoiceToBeSynthesizedComparator(priorityService);
+        comparator  = new SegmentVoiceToBeSynthesizedComparator(priorityService, true);
     }
 
     @Test

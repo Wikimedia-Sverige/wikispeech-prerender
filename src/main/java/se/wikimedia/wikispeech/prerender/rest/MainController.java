@@ -2,7 +2,6 @@ package se.wikimedia.wikispeech.prerender.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.Data;
 import org.apache.commons.codec.DecoderException;
@@ -15,7 +14,9 @@ import se.wikimedia.wikispeech.prerender.Collector;
 import se.wikimedia.wikispeech.prerender.LocalCache;
 import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
+import se.wikimedia.wikispeech.prerender.service.PriorityService;
 import se.wikimedia.wikispeech.prerender.service.SegmentService;
+import se.wikimedia.wikispeech.prerender.service.SynthesizeService;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
@@ -27,7 +28,6 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.query.PageSegmentVoi
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.*;
 import se.wikimedia.wikispeech.prerender.site.WikiResolver;
 
-import javax.management.ObjectName;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -42,18 +42,21 @@ public class MainController {
     private final WikispeechApi wikispeechApi;
     private final PageApi pageApi;
     private final SegmentService segmentService;
+    private final SynthesizeService synthesizeService;
     private final ObjectMapper objectMapper;
 
     public MainController(
             @Autowired Prevalence prevalence,
             @Autowired SegmentService segmentService,
             @Autowired PageApi pageApi,
-            @Autowired WikispeechApi wikispeechApi
+            @Autowired WikispeechApi wikispeechApi,
+            @Autowired SynthesizeService synthesizeService
     ) {
         this.prevalence = prevalence;
         this.pageApi = pageApi;
         this.wikispeechApi = wikispeechApi;
         this.segmentService = segmentService;
+        this.synthesizeService = synthesizeService;
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -174,6 +177,39 @@ public class MainController {
         }
     }
 
+    @Data
+    public static class CandidateToBeSynthesizedDto {
+        private PriorityService.CalculatedPriority priority;
+        private String consumerUrl;
+        private String title;
+        private byte[] hash;
+        private String voice;
+        private Map<LocalDateTime, String> failures;
+    }
+
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "synthesis/queue/candidates",
+            produces = "application/json"
+    )
+    public ResponseEntity<List<CandidateToBeSynthesizedDto>> getSynthesisQueueCandidates(
+            @RequestParam(required = false, defaultValue = "100") int limit,
+            @RequestParam(required = false, defaultValue = "0") int startOffset
+    ) throws Exception {
+        List<CandidateToBeSynthesizedDto> dtos = new ArrayList<>(limit);
+        for (SynthesizeService.CandidateToBeSynthesized candidate : synthesizeService.getCandidates().subList(startOffset, Math.min(startOffset + limit, synthesizeService.getCandidates().size() -1))) {
+            CandidateToBeSynthesizedDto dto = new CandidateToBeSynthesizedDto();
+            dto.setConsumerUrl(candidate.getWiki().getConsumerUrl());
+            dto.setTitle(candidate.getPage().getTitle());
+            dto.setHash(candidate.getPageSegment().getHash());
+            dto.setVoice(candidate.getVoice());
+            dto.setFailures(candidate.getPageSegmentVoice() != null ? candidate.getPageSegmentVoice().getFailedAttempts() : null);
+            dto.setPriority(candidate.getPriority());
+            dtos.add(dto);
+        }
+        return ResponseEntity.ok(dtos);
+    }
+
     @RequestMapping(
             method = RequestMethod.GET,
             path = "synthesis/errors",
@@ -232,7 +268,7 @@ public class MainController {
             path = "page",
             produces = "application/json"
     )
-    public ResponseEntity<Page> getSynthesisErrors(
+    public ResponseEntity<Page> getPage(
             @RequestParam String consumerUrl,
             @RequestParam String title
     ) throws Exception {

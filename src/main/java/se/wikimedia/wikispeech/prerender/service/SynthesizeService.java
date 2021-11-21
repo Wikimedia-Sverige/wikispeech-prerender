@@ -1,15 +1,14 @@
 package se.wikimedia.wikispeech.prerender.service;
 
 import lombok.Data;
+import lombok.Getter;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.prevayler.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
-import org.springframework.context.index.CandidateComponentsIndex;
 import org.springframework.stereotype.Service;
-import se.wikimedia.wikispeech.prerender.PriorityQueue;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
@@ -27,13 +26,17 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class SynthesizeService extends AbstractLifecycle implements SmartLifecycle {
 
     private final Logger log = LogManager.getLogger(getClass());
 
-    private final Queue<SynthesizeCommand> queue = new ConcurrentLinkedQueue<>();
+    @Getter
+    private List<CandidateToBeSynthesized> candidates = new ArrayList<>();
+    @Getter
+    private final Queue<CandidateToBeSynthesized> queue = new ConcurrentLinkedQueue<>();
 
     private final Prevalence prevalence;
 
@@ -42,7 +45,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
     private final PriorityService priorityService;
 
     private final int numberOfWorkerThreads = 2;
-    private final int maximumNumberOfCandidates = 100;
+    private final int maximumNumberOfCandidates = 250;
 
     private ExecutorService workers;
 
@@ -61,7 +64,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
         workers = new ExecutorService() {
             @Override
             protected void execute() {
-                SynthesizeCommand command = queue.poll();
+                CandidateToBeSynthesized command = queue.poll();
                 if (command == null) {
                     try {
                         log.trace("Queue is empty. Waiting for more commands.");
@@ -87,7 +90,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                             return;
                         }
                     } else {
-                        List<GatherCandidatesQuery.CandidateToBeSynthesized> candidates;
+                        List<CandidateToBeSynthesized> candidates;
                         try {
                             long started = System.currentTimeMillis();
                             candidates = prevalence.execute(
@@ -100,23 +103,11 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                         }
                         // todo if empty, then sleep for a while
                         long started = System.currentTimeMillis();
-                        candidates.sort(new GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator(priorityService));
+                        candidates.sort(new GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator(priorityService, true));
                         long millisecondsSpend = System.currentTimeMillis() - started;
                         log.debug("Prioritized {} segments to synthesize in {} milliseconds.", candidates.size(), millisecondsSpend);
-                        int size = Math.min(candidates.size(), maximumNumberOfCandidates);
-                        List<SynthesizeCommand> commands = new ArrayList<>(size);
-                        for (int i = 0; i < size; i++) {
-                            GatherCandidatesQuery.CandidateToBeSynthesized candidate = candidates.get(i);
-                            SynthesizeCommand item = new SynthesizeCommand();
-                            item.setConsumerUrl(candidate.getWiki().getConsumerUrl());
-                            item.setTitle(candidate.getPage().getTitle());
-                            item.setLanguage(candidate.getLanguage());
-                            item.setHash(candidate.getPageSegment().getHash());
-                            item.setRevision(candidate.getPage().getRevisionAtSegmentation());
-                            item.setVoice(candidate.getVoice());
-                            commands.add(item);
-                        }
-                        queue.addAll(commands);
+                        queue.addAll(candidates);
+                        SynthesizeService.this.candidates = candidates;
                     }
                 }
                 populatorStoppedLatch.countDown();
@@ -142,28 +133,28 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
         workers.stop();
     }
 
-    private void synthesize(SynthesizeCommand command) {
+    private void synthesize(CandidateToBeSynthesized candidate) {
         try {
-            log.info("Synthesizing {}", command);
+            log.info("Synthesizing voice {} for hash {} in page {} at {}", candidate.getVoice(), candidate.getPageSegment().getHash(), candidate.getPage().getTitle(),candidate.getWiki().getConsumerUrl());
             WikispeechApi.ListenResponseEnvelope responseEnvelope =
                     wikispeechApi.listen(
-                            command.getConsumerUrl(),
-                            command.getTitle(),
-                            Hex.encodeHexString(command.getHash()),
-                            command.getRevision(),
-                            command.getLanguage(),
-                            command.getVoice()
+                            candidate.getWiki().getConsumerUrl(),
+                            candidate.getPage().getTitle(),
+                            Hex.encodeHexString(candidate.getPageSegment().getHash()),
+                            candidate.getPage().getRevisionAtSegmentation(),
+                            candidate.getLanguage(),
+                            candidate.getVoice()
                     );
             prevalence.execute(
                     new CreateOrUpdatePageSegmentVoice(
-                            command.getConsumerUrl(),
-                            command.getTitle(),
-                            command.getHash(),
+                            candidate.getWiki().getConsumerUrl(),
+                            candidate.getPage().getTitle(),
+                            candidate.getPageSegment().getHash(),
                             responseEnvelope.getRevision(),
-                            command.getVoice()
+                            candidate.getVoice()
                     ));
         } catch (Exception e) {
-            log.error("Failed to synthesize {}", command, e);
+            log.error("Failed to synthesize {}", candidate, e);
             StringWriter stacktrace = new StringWriter(4096);
             stacktrace.append(e.getMessage());
             stacktrace.append("\n");
@@ -172,34 +163,24 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
             pw.flush();
             prevalence.execute(
                     new AddSegmentVoiceFailure(
-                            command.getConsumerUrl(),
-                            command.getTitle(),
-                            command.getHash(),
-                            command.getVoice(),
+                            candidate.getWiki().getConsumerUrl(),
+                            candidate.getPage().getTitle(),
+                            candidate.getPageSegment().getHash(),
+                            candidate.getVoice(),
                             stacktrace.toString()
                     ));
         }
     }
 
     @Data
-    public static class SynthesizeCommand {
-        private String consumerUrl;
-        private String title;
-        private long revision;
-        private byte[] hash;
-        private String language;
-        private String voice;
-    }
-
-    @Data
-    public static class GatherCandidatesQuery implements Query<Root, List<GatherCandidatesQuery.CandidateToBeSynthesized>> {
+    public static class GatherCandidatesQuery implements Query<Root, List<CandidateToBeSynthesized>> {
 
         @Override
-        public List<CandidateToBeSynthesized> query(Root root, Date date) throws Exception {
+        public List<SynthesizeService.CandidateToBeSynthesized> query(Root root, Date date) throws Exception {
             Set<String> wikiLanguageDefaultVoices = new HashSet<>(1);
             wikiLanguageDefaultVoices.add(null);
 
-            List<CandidateToBeSynthesized> candidates = new ArrayList<>(25000);
+            List<SynthesizeService.CandidateToBeSynthesized> candidates = new ArrayList<>(25000);
             for (Wiki wiki : root.getWikiByConsumerUrl().values()) {
 
                 LocalDateTime resynthesizeTimestamp = LocalDateTime.now().plus(wiki.getMaximumSynthesizedVoiceAge());
@@ -230,7 +211,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                             if (segmentVoice == null
                                     || segmentVoice.getTimestampSynthesized() == null
                                     || segmentVoice.getTimestampSynthesized().isAfter(resynthesizeTimestamp)) {
-                                candidates.add(new CandidateToBeSynthesized(
+                                candidates.add(new SynthesizeService.CandidateToBeSynthesized(
                                         wiki, page, segment, segmentVoice, language, voice
                                 ));
                             }
@@ -242,80 +223,26 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
             return candidates;
         }
 
-        @Data
-        public static class CandidateToBeSynthesized {
-            private Wiki wiki;
-            private Page page;
-            private PageSegment pageSegment;
-            private PageSegmentVoice pageSegmentVoice;
-            private String language;
-            private String voice;
-
-            public CandidateToBeSynthesized(Wiki wiki, Page page, PageSegment pageSegment, PageSegmentVoice pageSegmentVoice, String language, String voice) {
-                this.wiki = wiki;
-                this.page = page;
-                this.pageSegment = pageSegment;
-                this.pageSegmentVoice = pageSegmentVoice;
-                this.language = language;
-                this.voice = voice;
-            }
-        }
-
-        public static class SegmentVoiceToBeSynthesizedComparator implements Comparator<CandidateToBeSynthesized> {
+        public static class SegmentVoiceToBeSynthesizedComparator implements Comparator<SynthesizeService.CandidateToBeSynthesized> {
 
             private PriorityService priorityService;
+            private boolean explain;
 
-            public SegmentVoiceToBeSynthesizedComparator(PriorityService priorityService) {
+            public SegmentVoiceToBeSynthesizedComparator(PriorityService priorityService, boolean explain) {
                 this.priorityService = priorityService;
-            }
-
-            private Map<CandidateToBeSynthesized, Double> prioritiesCache = new HashMap<>(1000);
-
-            public double calculatePriority(CandidateToBeSynthesized candidateToBeSynthesized) {
-
-                double priority = 1D;
-                priority *= candidateToBeSynthesized.getPage().getPriority();
-
-                if (candidateToBeSynthesized.getPageSegmentVoice() != null
-                        && candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts() != null
-                        && !candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().isEmpty()) {
-                    priority /= candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size();
-                }
-
-                // lower segment index in page is slightly more prioritized
-                priority += 1D - Math.min(1000, candidateToBeSynthesized.getPageSegment().getLowestIndexAtSegmentation()) / 1000D;
-
-                // no synthesized voice at all is slightly more prioritized
-                if (candidateToBeSynthesized.getPageSegmentVoice() == null) {
-                    priority += 0.001D;
-                }
-
-                priority *= priorityService.getMultiplier(
-                        candidateToBeSynthesized.getWiki(),
-                        candidateToBeSynthesized.getPage(),
-                        candidateToBeSynthesized.getPageSegment(),
-                        candidateToBeSynthesized.getPageSegmentVoice(),
-                        candidateToBeSynthesized.getVoice()
-                );
-
-                return priority;
+                this.explain = explain;
             }
 
             @Override
-            public int compare(CandidateToBeSynthesized o1, CandidateToBeSynthesized o2) {
-                Double priority1 = prioritiesCache.get(o1);
-                if (priority1 == null) {
-                    priority1 = calculatePriority(o1);
-                    prioritiesCache.put(o1, priority1);
+            public int compare(SynthesizeService.CandidateToBeSynthesized o1, SynthesizeService.CandidateToBeSynthesized o2) {
+                if (o1.getPriority() == null) {
+                    o1.setPriority(priorityService.calculatePriority(o1, explain));
+                }
+                if (o2.getPriority() == null) {
+                    o2.setPriority(priorityService.calculatePriority(o2, explain));
                 }
 
-                Double priority2 = prioritiesCache.get(o2);
-                if (priority2 == null) {
-                    priority2 = calculatePriority(o2);
-                    prioritiesCache.put(o2, priority2);
-                }
-
-                int ret = Double.compare(priority2, priority1);
+                int ret = Double.compare(o2.getPriority().getValue(), o1.getPriority().getValue());
 
                 if (ret == 0) {
                     // pages that was segmented a long time ago is more prioritized
@@ -326,5 +253,25 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
             }
         }
 
+    }
+
+    @Data
+    public static class CandidateToBeSynthesized {
+        private PriorityService.CalculatedPriority priority;
+        private Wiki wiki;
+        private Page page;
+        private PageSegment pageSegment;
+        private PageSegmentVoice pageSegmentVoice;
+        private String language;
+        private String voice;
+
+        public CandidateToBeSynthesized(Wiki wiki, Page page, PageSegment pageSegment, PageSegmentVoice pageSegmentVoice, String language, String voice) {
+            this.wiki = wiki;
+            this.page = page;
+            this.pageSegment = pageSegment;
+            this.pageSegmentVoice = pageSegmentVoice;
+            this.language = language;
+            this.voice = voice;
+        }
     }
 }
