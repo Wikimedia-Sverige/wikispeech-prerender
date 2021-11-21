@@ -14,12 +14,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class Influx extends AbstractLifecycle implements SmartLifecycle {
 
-    private final String serverURL = "https://influx.wikimedia.se", username = "root", password = "root";
-    private final InfluxDB influxDB = InfluxDBFactory.connect(serverURL, username, password);
+    private final String serverURL = "https://influx.wikimedia.se";
+    private String username = "root";
+    private String password = "root";
+    private InfluxDB influxDB;
 
     @Override
     protected void doStart() {
-
+        username = System.getProperty("influx.username");
+        username = System.getProperty("influx.password");
+        influxDB = InfluxDBFactory.connect(serverURL, username, password);
         String databaseName = "wikispeech_prerender";
         influxDB.query(new Query("CREATE DATABASE " + databaseName));
         influxDB.setDatabase(databaseName);
