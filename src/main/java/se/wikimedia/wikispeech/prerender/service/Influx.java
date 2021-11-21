@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
-public class Influx extends AbstractLifecycle implements SmartLifecycle {
+public class Influx extends AbstractLifecycle { // uncomment to startup implements SmartLifecycle {
 
     private final String serverURL = "https://influx.wikimedia.se";
     private String username = "root";
