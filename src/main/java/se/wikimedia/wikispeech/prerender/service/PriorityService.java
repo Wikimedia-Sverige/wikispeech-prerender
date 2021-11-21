@@ -144,7 +144,7 @@ public class PriorityService {
         if (candidateToBeSynthesized.getPageSegmentVoice() != null
                 && candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts() != null
                 && !candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().isEmpty()) {
-            value /= candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size();
+            value /= candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size() + 1D;
             if (explain) {
                 priority.getExplanations().add(new Explanation(value, "Divided with number of failures " + candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size()));
             }
