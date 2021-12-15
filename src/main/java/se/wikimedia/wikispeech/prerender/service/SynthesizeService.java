@@ -108,6 +108,16 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                         log.debug("Prioritized {} segments to synthesize in {} milliseconds.", candidates.size(), millisecondsSpend);
                         queue.addAll(candidates);
                         SynthesizeService.this.candidates = candidates;
+
+                        if (candidates.isEmpty()) {
+                            try {
+                                Thread.sleep(10000);
+                            } catch (InterruptedException ie) {
+                                log.error("Interrupted while pausing to await new segments.", ie);
+                                return;
+                            }
+                        }
+
                     }
                 }
                 populatorStoppedLatch.countDown();
