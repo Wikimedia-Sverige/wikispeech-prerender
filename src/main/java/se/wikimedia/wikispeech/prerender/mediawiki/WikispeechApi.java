@@ -88,14 +88,14 @@ public class WikispeechApi {
     public static class MWException extends IOException {
 
         @Getter
-        private JsonNode error;
+        private final JsonNode error;
 
         public MWException(JsonNode error) {
             this.error = error;
         }
 
         public String getExceptionClass() {
-            return error.get("error").get("errorclass").textValue();
+            return error.toString();
         }
     }
 
