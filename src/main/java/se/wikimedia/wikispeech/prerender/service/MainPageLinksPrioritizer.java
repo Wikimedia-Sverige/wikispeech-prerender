@@ -1,7 +1,6 @@
 package se.wikimedia.wikispeech.prerender.service;
 
 import lombok.Data;
-import okhttp3.OkHttpClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.prevayler.Query;
@@ -13,7 +12,6 @@ import se.wikimedia.wikispeech.prerender.Collector;
 import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 import se.wikimedia.wikispeech.prerender.site.ScrapePageForWikiLinks;
 
@@ -98,5 +96,4 @@ public class MainPageLinksPrioritizer {
             this.title = title;
         }
     }
-
 }
