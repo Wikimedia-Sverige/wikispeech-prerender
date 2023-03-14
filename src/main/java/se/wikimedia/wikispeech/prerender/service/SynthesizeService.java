@@ -8,16 +8,20 @@ import org.apache.logging.log4j.Logger;
 import org.prevayler.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.command.SegmentPage;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
+import se.wikimedia.wikispeech.prerender.service.prevalence.query.PageNeedsToBeSegmented;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.AddSegmentVoiceFailure;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateOrUpdatePageSegmentVoice;
+import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.FlushSegmentPageVoice;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -26,7 +30,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class SynthesizeService extends AbstractLifecycle implements SmartLifecycle {
@@ -44,22 +48,30 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
 
     private final PriorityService priorityService;
 
+    private final SegmentService segmentService;
+
+    /**
+     * If gathered candidates is more than this number,
+     * then cut candidates at end of queue and flush from prevalence.
+     */
+    private final int flushCandidatesThreshold = 100000;
+
     private final int numberOfWorkerThreads = 2;
     private final int maximumNumberOfCandidates = 250;
 
     private ExecutorService workers;
 
-    private CountDownLatch populatorStoppedLatch;
-    private Thread populator;
-
+    @Autowired
     public SynthesizeService(
-            @Autowired Prevalence prevalence,
-            @Autowired WikispeechApi wikispeechApi,
-            @Autowired PriorityService priorityService
+            Prevalence prevalence,
+            WikispeechApi wikispeechApi,
+            PriorityService priorityService,
+            SegmentService segmentService
     ) {
         this.prevalence = prevalence;
         this.wikispeechApi = wikispeechApi;
         this.priorityService = priorityService;
+        this.segmentService = segmentService;
 
         workers = new ExecutorService() {
             @Override
@@ -77,75 +89,68 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                 }
             }
         };
-
-        populator = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (isRunning()) {
-                    if (!queue.isEmpty()) {
-                        try {
-                            Thread.sleep(Duration.ofSeconds(5).toMillis());
-                        } catch (InterruptedException ie) {
-                            log.info("Interrupted while waiting for queue to be processed.", ie);
-                            return;
-                        }
-                    } else {
-                        List<CandidateToBeSynthesized> candidates;
-                        try {
-                            long started = System.currentTimeMillis();
-                            candidates = prevalence.execute(
-                                    new GatherCandidatesQuery());
-                            long millisecondsSpend = System.currentTimeMillis() - started;
-                            log.debug("Gathered {} segments to synthesize in {} milliseconds.", candidates.size(), millisecondsSpend);
-                        } catch (Exception e) {
-                            log.error("Failed to gather candidates for synthesis", e);
-                            continue;
-                        }
-                        // todo if empty, then sleep for a while
-                        long started = System.currentTimeMillis();
-                        candidates.sort(new GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator(priorityService, true));
-                        long millisecondsSpend = System.currentTimeMillis() - started;
-                        log.debug("Prioritized {} segments to synthesize in {} milliseconds.", candidates.size(), millisecondsSpend);
-                        queue.addAll(candidates);
-                        SynthesizeService.this.candidates = candidates;
-
-                        if (candidates.isEmpty()) {
-                            try {
-                                Thread.sleep(10000);
-                            } catch (InterruptedException ie) {
-                                log.error("Interrupted while pausing to await new segments.", ie);
-                                return;
-                            }
-                        }
-
-                    }
-                }
-                populatorStoppedLatch.countDown();
-                log.info("Thread stops.");
-            }
-        });
     }
+
 
     @Override
     protected void doStart() {
-        populatorStoppedLatch = new CountDownLatch(1);
-        populator.start();
         workers.start();
     }
 
     @Override
     protected void doStop() {
-        try {
-            populatorStoppedLatch.await();
-        } catch (InterruptedException ie) {
-            log.warn("Interrupted while waiting for populator to stop", ie);
-        }
         workers.stop();
+    }
+
+    @Scheduled(initialDelay = 10, fixedDelay = 60 * 5, timeUnit = TimeUnit.SECONDS)
+    public void repopulateCandidates() {
+        log.info("Repopulating candidates to be synthesized...");
+        List<CandidateToBeSynthesized> candidates;
+        try {
+            long started = System.currentTimeMillis();
+            candidates = prevalence.execute(new GatherCandidatesQuery());
+            long millisecondsSpend = System.currentTimeMillis() - started;
+            log.debug("Gathered {} segments to synthesize in {} milliseconds.", candidates.size(), millisecondsSpend);
+        } catch (Exception e) {
+            log.error("Failed to gather candidates for synthesis", e);
+            return;
+        }
+
+        long started = System.currentTimeMillis();
+        candidates.sort(new GatherCandidatesQuery.SegmentVoiceToBeSynthesizedComparator(priorityService, false));
+        long millisecondsSpend = System.currentTimeMillis() - started;
+        log.debug("Prioritized {} segments to synthesize in {} milliseconds.", candidates.size(), millisecondsSpend);
+
+        if (candidates.size() >= flushCandidatesThreshold) {
+            log.info("There are {} candidates, {} will be flushed...", candidates.size(), candidates.size() - flushCandidatesThreshold);
+            List<CandidateToBeSynthesized> candidatesToBeFlushed = candidates.subList(flushCandidatesThreshold, candidates.size() - 1);
+            Map<Wiki, Set<Page>> pagesTouchedPerWiki = new HashMap<>();
+            int segmentVoicesFlushed = 0;
+            for (CandidateToBeSynthesized candidate : candidatesToBeFlushed) {
+                Set<Page> pagesTouched = pagesTouchedPerWiki.computeIfAbsent(candidate.getWiki(), k -> new HashSet<>(10000));
+                pagesTouched.add(candidate.getPage());
+                // remove pagesegementvoice from pagesegment
+                // and remove segment from page if no voices left
+                // and remove page from wiki if no segments left
+                prevalence.execute(new FlushSegmentPageVoice(
+                        candidate.getWiki().getConsumerUrl(),
+                        candidate.getPage().getTitle(),
+                        candidate.getPageSegment().getHash(),
+                        candidate.getVoice()));
+                segmentVoicesFlushed++;
+            }
+            log.info("Flushed out {} voices from {} pages in {} wikis", segmentVoicesFlushed, pagesTouchedPerWiki.values().stream().mapToInt(Set::size).sum(), pagesTouchedPerWiki.size());
+            candidates = candidates.subList(0, flushCandidatesThreshold);
+        }
+
+        queue.addAll(candidates);
+        SynthesizeService.this.candidates = candidates;
+
     }
 
     private void synthesize(CandidateToBeSynthesized candidate) {
         try {
-            log.info("Synthesizing voice {} for hash {} in page {} at {}", candidate.getVoice(), candidate.getPageSegment().getHash(), candidate.getPage().getTitle(),candidate.getWiki().getConsumerUrl());
+            log.info("Synthesizing voice '{}' for hash {} at segment index {} in page '{}' of wiki {} with priority {}", candidate.getVoice(), Base64.getEncoder().encodeToString(candidate.getPageSegment().getHash()), candidate.getPageSegment().getLowestIndexAtSegmentation(), candidate.getPage().getTitle(), candidate.getWiki().getConsumerUrl(), candidate.getPriority().getValue());
             WikispeechApi.ListenResponseEnvelope responseEnvelope =
                     wikispeechApi.listen(
                             candidate.getWiki().getConsumerUrl(),
@@ -156,15 +161,27 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                             candidate.getVoice()
                     );
             prevalence.execute(
-                    new CreateOrUpdatePageSegmentVoice(
+                    new FlushSegmentPageVoice(
                             candidate.getWiki().getConsumerUrl(),
                             candidate.getPage().getTitle(),
                             candidate.getPageSegment().getHash(),
-                            responseEnvelope.getRevision(),
                             candidate.getVoice()
                     ));
         } catch (Exception e) {
-            log.error("Failed to synthesize {}", candidate, e);
+
+            if (e instanceof WikispeechApi.MWException) {
+                WikispeechApi.MWException mwException = (WikispeechApi.MWException) e;
+                if (mwException.getError().get("error").hasNonNull("errorclass")) {
+                    String errorClass = mwException.getError().get("error").get("errorclass").textValue();
+                    if ("MediaWiki\\\\Wikispeech\\\\Segment\\\\OutdatedOrInvalidRevisionException".equals(errorClass)) {
+                        // send page back to segmentation
+                        segmentService.queue(candidate.getWiki().getConsumerUrl(), candidate.getPage().getTitle());
+                        return;
+                    }
+                }
+            }
+
+            log.error("Failed to synthesize voice '{}' for hash {} at segment index {} in page '{}' of wiki {} with priority {}", candidate.getVoice(), Base64.getEncoder().encodeToString(candidate.getPageSegment().getHash()), candidate.getPageSegment().getLowestIndexAtSegmentation(), candidate.getPage().getTitle(), candidate.getWiki().getConsumerUrl(), candidate.getPriority().getValue(), e);
             StringWriter stacktrace = new StringWriter(4096);
             stacktrace.append(e.getMessage());
             stacktrace.append("\n");

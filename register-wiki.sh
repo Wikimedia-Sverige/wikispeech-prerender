@@ -6,4 +6,4 @@ else
   consumerUrl=$1
 fi
 
-curl -d "consumerUrl=${consumerUrl}&initialLastRecentChangesLimitInMinutes=0&mainPagePriority=10&maximumSynthesizedVoiceAgeInDays=30" -X POST http://localhost:8080/api/wiki
+curl -d "consumerUrl=${consumerUrl}&initialLastRecentChangesLimitInMinutes=0&mainPagePriority=10&maximumSynthesizedVoiceAgeInDays=30" -X POST http://localhost:9090/api/wiki

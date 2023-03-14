@@ -190,4 +190,8 @@ public class SegmentService extends ExecutorService implements SmartLifecycle {
 
     }
 
+    public void flushSegments() {
+        // todo delete old segments that has not been touched for a very long time.
+    }
+
 }

@@ -3,6 +3,7 @@ package se.wikimedia.wikispeech.prerender.service.prevalence.domain.state;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
