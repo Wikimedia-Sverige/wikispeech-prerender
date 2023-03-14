@@ -12,7 +12,10 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSeg
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 

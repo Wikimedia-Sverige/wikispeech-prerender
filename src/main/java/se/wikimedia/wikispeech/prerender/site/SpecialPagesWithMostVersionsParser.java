@@ -11,8 +11,6 @@ import se.wikimedia.wikispeech.prerender.Collector;
 
 import javax.xml.xpath.*;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

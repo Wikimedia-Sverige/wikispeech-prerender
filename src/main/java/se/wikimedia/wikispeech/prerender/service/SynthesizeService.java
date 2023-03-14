@@ -13,23 +13,18 @@ import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.service.prevalence.domain.command.SegmentPage;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
-import se.wikimedia.wikispeech.prerender.service.prevalence.query.PageNeedsToBeSegmented;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.AddSegmentVoiceFailure;
-import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateOrUpdatePageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.FlushSegmentPageVoice;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @Service

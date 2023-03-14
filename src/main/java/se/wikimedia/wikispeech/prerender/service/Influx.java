@@ -5,11 +5,7 @@ import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
 import org.influxdb.dto.Query;
-import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class Influx extends AbstractLifecycle { // uncomment to startup implements SmartLifecycle {

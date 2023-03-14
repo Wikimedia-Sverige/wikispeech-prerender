@@ -5,7 +5,6 @@ import org.prevayler.Transaction;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
-import java.time.OffsetDateTime;
 import java.util.Date;
 
 @Data

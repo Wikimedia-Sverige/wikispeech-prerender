@@ -2,9 +2,9 @@ package se.wikimedia.wikispeech.prerender.service.prevalence.query;
 
 import lombok.Data;
 import org.prevayler.Query;
-import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
 import java.util.Date;
 

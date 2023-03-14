@@ -2,7 +2,6 @@ package se.wikimedia.wikispeech.prerender.service.prevalence.transaction;
 
 import lombok.Data;
 import org.prevayler.TransactionWithQuery;
-import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;

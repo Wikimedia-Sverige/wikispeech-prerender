@@ -9,11 +9,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.service.AbstractLifecycle;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateWiki;
-import se.wikimedia.wikispeech.prerender.site.SwedishWikipedia;
 
 import java.io.File;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
