@@ -99,7 +99,7 @@ public class Prevalence extends AbstractLifecycle implements SmartLifecycle {
 
     private static final Pattern journalFileNamePattern = Pattern.compile("(\\d+)\\.journal");
 
-    @Scheduled(fixedDelay = 7, initialDelay = 1, timeUnit = TimeUnit.DAYS)
+    @Scheduled(fixedDelay = 7, initialDelay = 2, timeUnit = TimeUnit.DAYS)
     public void snapshotAndRemoveJournals() throws Exception {
         File snapshot = prevalyer.takeSnapshot();
         Long currentJournal = null;

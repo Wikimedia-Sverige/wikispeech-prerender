@@ -35,4 +35,17 @@ public class Wiki implements Serializable {
     public int hashCode() {
         return Objects.hash(consumerUrl);
     }
+
+    @Override
+    public String toString() {
+        return "Wiki{" +
+                "name='" + name + '\'' +
+                ", consumerUrl='" + consumerUrl + '\'' +
+                ", maximumSynthesizedVoiceAge=" + maximumSynthesizedVoiceAge +
+                ", defaultLanguage='" + defaultLanguage + '\'' +
+                ", voicesPerLanguage=" + voicesPerLanguage +
+                ", timestampOfLastRecentChangesItemProcessed=" + timestampOfLastRecentChangesItemProcessed +
+                ", pollRecentChangesNamespaces=" + pollRecentChangesNamespaces +
+                '}';
+    }
 }

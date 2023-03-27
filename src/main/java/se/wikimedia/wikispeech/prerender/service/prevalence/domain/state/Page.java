@@ -22,4 +22,23 @@ public class Page implements Serializable {
     private Long revisionAtSegmentation;
     private String languageAtSegmentation;
 
+    /**
+     * Longevity of this page.
+     * E.g. main page should never be flushed out,
+     * pages linked from main page lives for quite some time (they are often large and have a lot of segments we don't want to rerender if we can avoid it)
+     * while most pages use system fallback (setting this value to null)
+     */
+    private LocalDateTime timestampDontFlushUntil;
+
+
+    @Override
+    public String toString() {
+        return "Page{" +
+                "title='" + title + '\'' +
+                ", priority=" + priority +
+                ", timestampSegmented=" + timestampSegmented +
+                ", revisionAtSegmentation=" + revisionAtSegmentation +
+                ", languageAtSegmentation='" + languageAtSegmentation + '\'' +
+                '}';
+    }
 }

@@ -64,18 +64,42 @@ Basically this means the following order when synthesizing:
 6. The second segment in pages found in recent changes.
 7. ... until all segments in all pages found in recent changes has been synthesized.
 
+Candidates to be synthesized is re-evaluated every five minutes.
+
+### Automatic flushing of segments
+
 As the number of candidates to be synthesized can grow very large in a rather short time,
 a flushing mechanism kicks in when there are more than 100,000 candidates in the queue, 
 removing those with the lowest priority and retains the top 100,000.
 
+Segments flushing exists in order to save RAM, as the state of the application is kept in heap.
+
+### Automatic flushing of pages
+
+After one day of inactivity to a page on a wiki, 
+the state of rendering for that page will be a candidate for being flushed out.
+If there are still segments that have not been synthesized, this occurs after two days.
+
+Flushing a page means that if there is a change after the flush, 
+the complete page will be re-synthesized. 
+(Re-synthesized as in requested to be listened to. Wikispeech backend might in fact be cached.)
+
+The main page will never be flushed out.
+
+Pages that are linked to from the main page will not be flushed out until five days after they were last seen on the main page.
+
+Page flushing exists in order to save RAM, as the state of the application is kept in heap.
+  
+### Failing segment voices
+
+Will be a candidate to be retried every n hours, where n=number of previous failures.
+
 ## TODO
 
 * Add feature in Wikispeech to not send audio response on synthesis, in order to minimize network data.
-* Flush out pages that have not been updated for x days 
-* Make the 100000 value in a property file or something (hard coded in SynthesizeService.java)
-* Make default priorities configurable in properties file (hard coded 5F in MainPagePrioritizer.java)
+* Add feature in Wikispeech to list all cached segments and voices for a given page, in order to avoid requesting synthesis when not needed.
+* Make all hard coded value mentioned above configurable in a properties file or something.
 * Report state of candidate, flushing, etc to influxdb.
-
 
 
 ## REST

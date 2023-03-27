@@ -61,10 +61,11 @@ public class PriorityService {
 
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
     public void expunge() {
-        log.info("Expunging...");
+        log.info("Expunging priorities...");
         for (Map.Entry<Object, PrioritySetting> entry : new HashSet<>(settings.entrySet())) {
             if (entry.getValue().getTo().isBefore(LocalDateTime.now())) {
                 settings.remove(entry.getKey());
+                log.info("Expunged {}", entry);
             }
         }
     }

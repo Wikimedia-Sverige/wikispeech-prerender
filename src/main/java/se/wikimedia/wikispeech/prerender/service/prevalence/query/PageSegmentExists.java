@@ -2,7 +2,9 @@ package se.wikimedia.wikispeech.prerender.service.prevalence.query;
 
 import org.prevayler.Query;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
+import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -21,7 +23,10 @@ public class PageSegmentExists implements Query<Root, Boolean> {
 
     @Override
     public Boolean query(Root root, Date date) throws Exception {
-        for (PageSegment segment : root.getWikiByConsumerUrl().get(consumerUrl).getPagesByTitle().get(title).getSegments()) {
+        Wiki wiki = root.getWikiByConsumerUrl().get(consumerUrl);
+        Page page = wiki.getPagesByTitle().get(title);
+        if (page == null) return false;
+        for (PageSegment segment : page.getSegments()) {
             if (Arrays.equals(hash, segment.getHash())) {
                 return true;
             }

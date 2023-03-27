@@ -17,4 +17,11 @@ public class Root implements Serializable {
     private Intern<String> internedVoices = new Intern<>();
     private Intern<String> internedLanguages = new Intern<>();
 
+    @Override
+    public String toString() {
+        return "Root{" +
+                "internedVoices=" + internedVoices +
+                ", internedLanguages=" + internedLanguages +
+                '}';
+    }
 }

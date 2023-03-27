@@ -10,8 +10,7 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateWi
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.SetWikiMainPage;
 import se.wikimedia.wikispeech.prerender.site.WikiResolver;
 
-import java.time.Duration;
-import java.time.OffsetDateTime;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -79,6 +78,7 @@ public class CreateWikiCommand {
         createMainPage.setLanguageAtSegmentation(pageInfo.getPageLanguage());
         createMainPage.setRevisionAtSegmentation(pageInfo.getLastRevisionIdentity());
         createMainPage.setPriority(mainPagePriority);
+        createMainPage.setTimestampDontFlushUntil(LocalDateTime.ofInstant(Instant.ofEpochMilli(Long.MAX_VALUE), ZoneOffset.UTC));
         Page mainPage = prevalence.execute(createMainPage);
 
         prevalence.execute(new SetWikiMainPage(consumerUrl, mainPage.getTitle()));

@@ -98,6 +98,10 @@ public class WikispeechApi {
         }
     }
 
+    /**
+     * A cache of the greatest revision known of all pages processed in all wikis
+     * todo: Make it a guava-cache that flush out oldest items after X MB size
+     */
     private Map<String, Map<String, Long>> mostRecentRevisionSeenCache = new HashMap<>();
 
     private long getGreatestRevisionKnown(String consumerUrl, String title, long knownRevision) {
@@ -121,7 +125,7 @@ public class WikispeechApi {
             envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, language, voice));
             envelope.setRevision(lastKnownRevision);
         } catch (MWException mwException) {
-            if ("MediaWiki\\Wikispeech\\Segment\\OutdatedOrInvalidRevisionException".equals(mwException.getExceptionClass())) {
+            if (mwException.getError().toString().contains("OutdatedOrInvalidRevisionException")) {
                 greatestRevisionKnown = getCurrentRevision(consumerUrl, title);
                 setGreatestRevisionKnown(consumerUrl, title, greatestRevisionKnown);
                 envelope.setResponse(doListen(consumerUrl, segmentHash, greatestRevisionKnown, language, voice));
@@ -152,30 +156,30 @@ public class WikispeechApi {
 
         Call call = client.newCall(request);
         Response response = call.execute();
-
-        if (response.code() != 200) {
-            throw new IOException("Response" + response);
-        }
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(49152);
-        IOUtils.copy(response.body().byteStream(), baos);
+        final ByteArrayOutputStream baos;
         try {
-            JsonNode json = objectMapper.readTree(baos.toByteArray());
-            if (json.has("error")) {
-                if (json.get("error").has("errorclass")) {
-                    throw new MWException(json);
-                }
-                throw new IOException("Wikispeech responded with an error!" + objectMapper.writeValueAsString(json));
+            if (response.code() != 200) {
+                throw new IOException("Response" + response);
             }
-            ListenResponse listenResponse = objectMapper.convertValue(json.get("wikispeech-listen"), ListenResponse.class);
-            if (listenResponse == null) {
-                throw new RuntimeException("Failed to deserialize JSON response!" + objectMapper.writeValueAsString(json));
-            }
-            return listenResponse;
-        } catch (Exception exception) {
-            log.error("Failed processing response: {}", new String(baos.toByteArray()), exception);
-            throw exception;
+
+            baos = new ByteArrayOutputStream(49152);
+            IOUtils.copy(response.body().byteStream(), baos);
+        } finally {
+            response.close();
         }
+
+        JsonNode json = objectMapper.readTree(baos.toByteArray());
+        if (json.has("error")) {
+            if (json.get("error").has("errorclass")) {
+                throw new MWException(json);
+            }
+            throw new IOException("Wikispeech responded with an error!" + objectMapper.writeValueAsString(json));
+        }
+        ListenResponse listenResponse = objectMapper.convertValue(json.get("wikispeech-listen"), ListenResponse.class);
+        if (listenResponse == null) {
+            throw new RuntimeException("Failed to deserialize JSON response!" + objectMapper.writeValueAsString(json));
+        }
+        return listenResponse;
     }
 
     @Data

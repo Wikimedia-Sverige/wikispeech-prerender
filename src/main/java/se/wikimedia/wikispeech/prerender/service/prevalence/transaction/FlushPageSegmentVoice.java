@@ -12,7 +12,7 @@ import java.util.Date;
 import java.util.Iterator;
 
 @Data
-public class FlushSegmentPageVoice implements Transaction<Root> {
+public class FlushPageSegmentVoice implements Transaction<Root> {
 
     private static final long serialVersionUID = 1L;
 
@@ -21,10 +21,10 @@ public class FlushSegmentPageVoice implements Transaction<Root> {
     private byte[] segmentHash;
     private String voice;
 
-    public FlushSegmentPageVoice() {
+    public FlushPageSegmentVoice() {
     }
 
-    public FlushSegmentPageVoice(String wikiConsumerUrl, String pageTitle, byte[] segmentHash, String voice) {
+    public FlushPageSegmentVoice(String wikiConsumerUrl, String pageTitle, byte[] segmentHash, String voice) {
         this.wikiConsumerUrl = wikiConsumerUrl;
         this.pageTitle = pageTitle;
         this.segmentHash = segmentHash;
