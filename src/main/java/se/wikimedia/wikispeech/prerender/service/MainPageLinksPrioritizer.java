@@ -37,16 +37,28 @@ public class MainPageLinksPrioritizer {
     private final SegmentService segmentService;
     private final PageApi pageApi;
 
+    private final float priorityMultiplier;
+    private final Duration priorityTimeToLive;
+    private final Duration timestampDontFlushUntil;
+
+
+    @Autowired
     public MainPageLinksPrioritizer(
-            @Autowired Prevalence prevalence,
-            @Autowired PriorityService priorityService,
-            @Autowired SegmentService segmentService,
-            @Autowired PageApi pageApi
+            Prevalence prevalence,
+            PriorityService priorityService,
+            SegmentService segmentService,
+            PageApi pageApi,
+            Settings settings
     ) {
         this.prevalence = prevalence;
         this.priorityService = priorityService;
         this.segmentService = segmentService;
         this.pageApi = pageApi;
+
+        priorityMultiplier = settings.getFloat("MainPageLinksPrioritizer.priorityMultiplier", 5f);
+        priorityTimeToLive = settings.getDuration("MainPageLinksPrioritizer.priorityTimeToLive", Duration.ofDays(1));
+        timestampDontFlushUntil = settings.getDuration("MainPageLinksPrioritizer.timestampDontFlushUntil", Duration.ofDays(5));
+
     }
 
     private final Map<String, OffsetDateTime> lastChangedByWikiConsumerUrl = new HashMap<>();
@@ -56,8 +68,8 @@ public class MainPageLinksPrioritizer {
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES, initialDelay = 0)
     public void run() throws Exception {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime future = now.plus(Duration.ofDays(1));
-        LocalDateTime timestampDontFlushUntil = now.plusDays(5);
+        LocalDateTime priorityTimeToLive = now.plus(this.priorityTimeToLive);
+        LocalDateTime timestampDontFlushUntil = now.plus(this.timestampDontFlushUntil);
 
         for (Wiki wiki : prevalence.execute(new Query<Root, Set<Wiki>>() {
             @Override
@@ -98,7 +110,7 @@ public class MainPageLinksPrioritizer {
                         priorityService.put(
                                 new ConsumerUrlAndTitle(wiki.getConsumerUrl(), title),
                                 new PriorityService.PagePrioritySetting(
-                                        now, future, 5F,
+                                        now, priorityTimeToLive, priorityMultiplier,
                                         wiki.getConsumerUrl(), title
                                 )
                         );

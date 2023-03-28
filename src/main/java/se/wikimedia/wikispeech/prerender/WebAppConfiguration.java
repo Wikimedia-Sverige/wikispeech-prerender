@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
+import se.wikimedia.wikispeech.prerender.service.Settings;
 
 import java.io.IOException;
 import java.util.concurrent.Executor;
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class WebAppConfiguration implements SchedulingConfigurer {
 
     @Bean
-    public OkHttpClient okHttpClient() {
+    public OkHttpClient okHttpClient(Settings settings) {
         return new OkHttpClient.Builder()
                 .readTimeout(5, TimeUnit.MINUTES)
                 .addInterceptor(
@@ -39,7 +40,7 @@ public class WebAppConfiguration implements SchedulingConfigurer {
                                 Request requestWithUserAgent = originalRequest
                                         .newBuilder()
                                         .header("Content-Type", "application/json")
-                                        .header("User-Agent", "WMSE Wikispeech API Java client")
+                                        .header("User-Agent", settings.getString("WebAppConfiguration.userAgent", "WMSE Wikispeech Prerender"))
                                         .build();
 
                                 return chain.proceed(requestWithUserAgent);

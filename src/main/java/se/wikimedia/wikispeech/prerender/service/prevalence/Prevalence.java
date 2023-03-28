@@ -11,6 +11,7 @@ import se.wikimedia.wikispeech.prerender.service.AbstractLifecycle;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -120,6 +121,10 @@ public class Prevalence extends AbstractLifecycle implements SmartLifecycle {
                 }
             }
         }
+    }
+
+    public void takeSnapshot() throws Exception {
+        prevalyer.takeSnapshot();
     }
 
 }

@@ -263,4 +263,16 @@ public class MainController {
             }
         }));
     }
+
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "prevalence/snapshot",
+            produces = "application/json"
+    )
+    public ResponseEntity<Page> snapshot() throws Exception {
+        prevalence.takeSnapshot();
+        Runtime.getRuntime().gc();
+        Runtime.getRuntime().gc();
+        return ResponseEntity.ok().build();
+    }
 }

@@ -14,6 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import se.wikimedia.wikispeech.prerender.Collector;
+import se.wikimedia.wikispeech.prerender.service.Settings;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,20 +27,26 @@ public class WikispeechApi {
 
     private final Logger log = LogManager.getLogger(getClass());
 
-    private boolean skipJournalMetrics = true;
-    private String wikispeechBaseUrl = "https://wikispeech.wikimedia.se/w";
+    private final boolean skipJournalMetrics;
+    private final String wikispeechBaseUrl;
 
     private final ObjectMapper objectMapper;
     private final OkHttpClient client;
 
     private final PageApi pageApi;
 
+    @Autowired
     public WikispeechApi(
-            @Autowired PageApi pageApi,
-            @Autowired OkHttpClient client
+            Settings settings,
+            PageApi pageApi,
+            OkHttpClient client
     ) {
         this.pageApi = pageApi;
         this.client = client;
+
+        this.wikispeechBaseUrl = settings.getString("WikispeechApi.wikispeechBaseUrl", "https://wikispeech.wikimedia.se/w");
+        this.skipJournalMetrics = settings.getBoolean("WikispeechApi.skipJournalMetrics", true);
+
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);

@@ -42,20 +42,21 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
 
     private final Prevalence prevalence;
 
+    private final Settings settings;
+
     private final WikispeechApi wikispeechApi;
 
     private final PriorityService priorityService;
-
-    private final SegmentService segmentService;
 
     /**
      * If gathered candidates is more than this number,
      * then cut candidates at end of queue and flush from prevalence.
      */
-    private final int flushCandidatesThreshold = 100000;
+    private final int flushCandidatesThreshold;
+    private final Duration pageMustBeThisOldToBeConsideredForFlushing;
+    private final Duration flushPageAfterThisMuchTimeSinceSegmentation;
 
-    private final int numberOfWorkerThreads = 2;
-    private final int maximumNumberOfCandidates = 250;
+    private final int numberOfWorkerThreads;
 
     private ExecutorService workers;
 
@@ -64,12 +65,17 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
             Prevalence prevalence,
             WikispeechApi wikispeechApi,
             PriorityService priorityService,
-            SegmentService segmentService
+            Settings settings
     ) {
         this.prevalence = prevalence;
         this.wikispeechApi = wikispeechApi;
         this.priorityService = priorityService;
-        this.segmentService = segmentService;
+        this.settings = settings;
+
+        flushCandidatesThreshold = settings.getInteger("SynthesizeService.flushCandidatesThreshold", 100000);
+        pageMustBeThisOldToBeConsideredForFlushing = settings.getDuration("SynthesizeService.pageMustBeThisOldToBeConsideredForFlushing", Duration.ofDays(1));
+        flushPageAfterThisMuchTimeSinceSegmentation = settings.getDuration("SynthesizeService.flushPageAfterThisMuchTimeSinceSegmentation", Duration.ofDays(2));
+        numberOfWorkerThreads = settings.getInteger("SynthesizeService.numberOfWorkerThreads", 1);
 
         workers = new ExecutorService() {
             @Override
@@ -87,6 +93,7 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
                 }
             }
         };
+        workers.setNumberOfWorkerThreads(numberOfWorkerThreads);
     }
 
 
@@ -106,8 +113,10 @@ public class SynthesizeService extends AbstractLifecycle implements SmartLifecyc
         queue.clear();
 
         try {
-            log.info("Searching for pages to be flushed... Must be at least one day old. All older than 2 days will be flushed.");
-            Map<String, Collection<String>> pageTitlesByWikiConsumerUrl = prevalence.execute(new FindPagesToBeFlushed(Duration.ofDays(1), Duration.ofDays(2)));
+            log.info("Searching for pages to be flushed...");
+            Map<String, Collection<String>> pageTitlesByWikiConsumerUrl = prevalence.execute(
+                    new FindPagesToBeFlushed(pageMustBeThisOldToBeConsideredForFlushing, flushPageAfterThisMuchTimeSinceSegmentation)
+            );
             if (!pageTitlesByWikiConsumerUrl.isEmpty()) {
                 prevalence.execute(new FlushPages(pageTitlesByWikiConsumerUrl));
                 log.info("Flushed pages {}", pageTitlesByWikiConsumerUrl);

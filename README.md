@@ -101,7 +101,6 @@ Will be a candidate to be retried every n hours, where n=number of previous fail
 * Make all hard coded value mentioned above configurable in a properties file or something.
 * Report state of candidate, flushing, etc to influxdb.
 
-
 ## REST
 
 Most REST calls are exist for debug and development reasons.
