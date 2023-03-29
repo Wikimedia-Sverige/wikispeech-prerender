@@ -17,10 +17,7 @@ import se.wikimedia.wikispeech.prerender.Collector;
 import se.wikimedia.wikispeech.prerender.LocalCache;
 import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
-import se.wikimedia.wikispeech.prerender.service.CreateWikiCommand;
-import se.wikimedia.wikispeech.prerender.service.PriorityService;
-import se.wikimedia.wikispeech.prerender.service.SegmentService;
-import se.wikimedia.wikispeech.prerender.service.SynthesizeService;
+import se.wikimedia.wikispeech.prerender.service.*;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
@@ -44,20 +41,25 @@ public class MainController {
     private final PageApi pageApi;
     private final SegmentService segmentService;
     private final SynthesizeService synthesizeService;
+    private final YesterdaysMostReadArticlesPrioritizer yesterdaysMostReadPrioritizer;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public MainController(
-            @Autowired Prevalence prevalence,
-            @Autowired SegmentService segmentService,
-            @Autowired PageApi pageApi,
-            @Autowired WikispeechApi wikispeechApi,
-            @Autowired SynthesizeService synthesizeService
+            Prevalence prevalence,
+            SegmentService segmentService,
+            PageApi pageApi,
+            WikispeechApi wikispeechApi,
+            SynthesizeService synthesizeService,
+            YesterdaysMostReadArticlesPrioritizer yesterdaysMostReadPrioritizer
     ) {
         this.prevalence = prevalence;
         this.pageApi = pageApi;
         this.wikispeechApi = wikispeechApi;
         this.segmentService = segmentService;
         this.synthesizeService = synthesizeService;
+        this.yesterdaysMostReadPrioritizer = yesterdaysMostReadPrioritizer;
+
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -273,6 +275,16 @@ public class MainController {
         prevalence.takeSnapshot();
         Runtime.getRuntime().gc();
         Runtime.getRuntime().gc();
+        return ResponseEntity.ok().build();
+    }
+
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "prioritizeYesterdaysMetrics",
+            produces = "application/json"
+    )
+    public ResponseEntity<Void> prioritizeYesterdaysMetrics() throws Exception {
+        yesterdaysMostReadPrioritizer.process();
         return ResponseEntity.ok().build();
     }
 }

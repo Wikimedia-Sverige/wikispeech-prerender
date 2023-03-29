@@ -27,7 +27,6 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@EnableScheduling
 public class MainPageLinksPrioritizer {
 
     private final Logger log = LogManager.getLogger(getClass());
@@ -37,7 +36,7 @@ public class MainPageLinksPrioritizer {
     private final SegmentService segmentService;
     private final PageApi pageApi;
 
-    private final float priorityMultiplier;
+    private final double priorityMultiplier;
     private final Duration priorityTimeToLive;
     private final Duration timestampDontFlushUntil;
 
@@ -55,7 +54,7 @@ public class MainPageLinksPrioritizer {
         this.segmentService = segmentService;
         this.pageApi = pageApi;
 
-        priorityMultiplier = settings.getFloat("MainPageLinksPrioritizer.priorityMultiplier", 5f);
+        priorityMultiplier = settings.getDouble("MainPageLinksPrioritizer.priorityMultiplier", 5d);
         priorityTimeToLive = settings.getDuration("MainPageLinksPrioritizer.priorityTimeToLive", Duration.ofDays(1));
         timestampDontFlushUntil = settings.getDuration("MainPageLinksPrioritizer.timestampDontFlushUntil", Duration.ofDays(5));
 

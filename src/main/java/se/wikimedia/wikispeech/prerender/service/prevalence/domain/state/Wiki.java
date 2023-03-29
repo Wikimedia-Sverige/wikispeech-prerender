@@ -13,6 +13,8 @@ public class Wiki implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String name;
+
+    /** eg https://sv.wikipedia.org/w */
     private String consumerUrl;
 
     private Page mainPage;
