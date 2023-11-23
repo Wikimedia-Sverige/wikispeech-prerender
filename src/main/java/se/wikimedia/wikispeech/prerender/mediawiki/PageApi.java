@@ -18,6 +18,13 @@ import java.time.OffsetDateTime;
 @Component
 public class PageApi {
 
+    public static void main(String[] args) throws Exception {
+        PageApi api = new PageApi(new OkHttpClient());
+        PageInfo mainpage = api.getPageInfo("https://sv.wikipedia.org/w", "Portal:Huvudsida");
+        PageInfo quisling = api.getPageInfo("https://sv.wikipedia.org/w", "Vidkun_Quisling");
+        System.currentTimeMillis();
+    }
+
     private final Logger log = LogManager.getLogger(getClass());
 
     private final OkHttpClient client;
@@ -74,8 +81,9 @@ public class PageApi {
         return response.headers();
     }
 
+    @Autowired
     public PageApi(
-            @Autowired OkHttpClient client
+             OkHttpClient client
     ) {
         this.client = client;
         objectMapper = new ObjectMapper()

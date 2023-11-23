@@ -9,24 +9,22 @@ import org.apache.commons.codec.binary.Hex;
 import org.prevayler.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import se.wikimedia.wikispeech.prerender.Collector;
 import se.wikimedia.wikispeech.prerender.LocalCache;
 import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
-import se.wikimedia.wikispeech.prerender.service.PriorityService;
-import se.wikimedia.wikispeech.prerender.service.SegmentService;
-import se.wikimedia.wikispeech.prerender.service.SynthesizeService;
+import se.wikimedia.wikispeech.prerender.service.*;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegment;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSegmentVoice;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
-import se.wikimedia.wikispeech.prerender.service.prevalence.query.GetWiki;
 import se.wikimedia.wikispeech.prerender.service.prevalence.query.PageSegmentVoiceReference;
-import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.*;
-import se.wikimedia.wikispeech.prerender.site.WikiResolver;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -43,20 +41,25 @@ public class MainController {
     private final PageApi pageApi;
     private final SegmentService segmentService;
     private final SynthesizeService synthesizeService;
+    private final YesterdaysMostReadArticlesPrioritizer yesterdaysMostReadPrioritizer;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public MainController(
-            @Autowired Prevalence prevalence,
-            @Autowired SegmentService segmentService,
-            @Autowired PageApi pageApi,
-            @Autowired WikispeechApi wikispeechApi,
-            @Autowired SynthesizeService synthesizeService
+            Prevalence prevalence,
+            SegmentService segmentService,
+            PageApi pageApi,
+            WikispeechApi wikispeechApi,
+            SynthesizeService synthesizeService,
+            YesterdaysMostReadArticlesPrioritizer yesterdaysMostReadPrioritizer
     ) {
         this.prevalence = prevalence;
         this.pageApi = pageApi;
         this.wikispeechApi = wikispeechApi;
         this.segmentService = segmentService;
         this.synthesizeService = synthesizeService;
+        this.yesterdaysMostReadPrioritizer = yesterdaysMostReadPrioritizer;
+
         objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -68,44 +71,18 @@ public class MainController {
             produces = "application/json"
     )
     public ResponseEntity<String> createWiki(
-            @RequestParam String consumerUrl
+            @RequestParam String consumerUrl,
+            @RequestParam(defaultValue = "60") Integer initialLastRecentChangesLimitInMinutes,
+            @RequestParam(defaultValue = "10") Float mainPagePriority,
+            @RequestParam(defaultValue = "30") Integer maximumSynthesizedVoiceAgeInDays
     ) throws Exception {
-        // todo assert correct consumerUrl.
-        Wiki wiki = prevalence.execute(new GetWiki(consumerUrl));
-        if (wiki != null) {
-            return ResponseEntity.badRequest().body("{\"error\", \"Already exists\"}");
-        }
-        WikiResolver resolver = new WikiResolver();
-        resolver.detect(consumerUrl);
 
-        PageApi.PageInfo pageInfo = pageApi.getPageInfo(consumerUrl, resolver.getMainPageTitle());
-
-        CreateWiki createWiki = new CreateWiki();
-        createWiki.setConsumerUrl(consumerUrl);
-        createWiki.setName(resolver.getWikiName());
-        createWiki.setDefaultLanguage(pageInfo.getPageLanguage());
-        Set<Integer> namespaces = new LinkedHashSet<>();
-        namespaces.add(0);
-        namespaces.add(pageInfo.getNamespaceIdentity());
-        createWiki.setPollRecentChangesNamespaces(new ArrayList<>(namespaces));
-        createWiki.setTimestampOfLastRecentChangesItemProcessed(OffsetDateTime.now().minusDays(7));
-        // todo request setting
-        createWiki.setMaximumSynthesizedVoiceAge(Duration.ofDays(30));
-        // todo request setting
-        createWiki.setVoicesPerLanguage(resolver.getDefaultVoicesByLanguage());
-        wiki = prevalence.execute(createWiki);
-
-        CreateNonSegmentedPage createMainPage = new CreateNonSegmentedPage();
-        createMainPage.setConsumerUrl(wiki.getConsumerUrl());
-        createMainPage.setTitle(resolver.getMainPageTitle());
-        createMainPage.setLanguageAtSegmentation(pageInfo.getPageLanguage());
-        createMainPage.setRevisionAtSegmentation(pageInfo.getLastRevisionIdentity());
-        createMainPage.setPriority(10F);
-        Page mainPage = prevalence.execute(createMainPage);
-
-        prevalence.execute(new SetWikiMainPage(consumerUrl, mainPage.getTitle()));
-
-        segmentService.segment(consumerUrl, createMainPage.getTitle());
+        Wiki wiki = new CreateWikiCommand(prevalence, segmentService, pageApi, consumerUrl)
+                .setVoicesPerLanguage(null)
+                .setMainPagePriority(mainPagePriority)
+                .setTimestampOfLastRecentChangesItemProcessed(OffsetDateTime.now().minusMinutes(initialLastRecentChangesLimitInMinutes))
+                .setMaximumSynthesizedVoiceAge(Duration.ofDays(maximumSynthesizedVoiceAgeInDays))
+                .execute();
 
         return ResponseEntity.ok(objectMapper.writeValueAsString(wiki));
     }
@@ -148,12 +125,6 @@ public class MainController {
         }
         return null;
     }
-
-    @RequestMapping(
-            method = RequestMethod.GET,
-            path = "synthesis",
-            produces = "application/json"
-    )
 
     @Data
     public static class SynthesisErrorsResponse {
@@ -293,5 +264,27 @@ public class MainController {
                 return root.getWikiByConsumerUrl().get(consumerUrl).getPagesByTitle().get(title);
             }
         }));
+    }
+
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "prevalence/snapshot",
+            produces = "application/json"
+    )
+    public ResponseEntity<Page> snapshot() throws Exception {
+        prevalence.takeSnapshot();
+        Runtime.getRuntime().gc();
+        Runtime.getRuntime().gc();
+        return ResponseEntity.ok().build();
+    }
+
+    @RequestMapping(
+            method = RequestMethod.GET,
+            path = "prioritizeYesterdaysMetrics",
+            produces = "application/json"
+    )
+    public ResponseEntity<Void> prioritizeYesterdaysMetrics() throws Exception {
+        yesterdaysMostReadPrioritizer.process();
+        return ResponseEntity.ok().build();
     }
 }

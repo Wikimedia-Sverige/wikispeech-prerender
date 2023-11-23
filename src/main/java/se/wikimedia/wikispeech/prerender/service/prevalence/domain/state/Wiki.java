@@ -13,6 +13,8 @@ public class Wiki implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String name;
+
+    /** eg https://sv.wikipedia.org/w */
     private String consumerUrl;
 
     private Page mainPage;
@@ -34,5 +36,18 @@ public class Wiki implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(consumerUrl);
+    }
+
+    @Override
+    public String toString() {
+        return "Wiki{" +
+                "name='" + name + '\'' +
+                ", consumerUrl='" + consumerUrl + '\'' +
+                ", maximumSynthesizedVoiceAge=" + maximumSynthesizedVoiceAge +
+                ", defaultLanguage='" + defaultLanguage + '\'' +
+                ", voicesPerLanguage=" + voicesPerLanguage +
+                ", timestampOfLastRecentChangesItemProcessed=" + timestampOfLastRecentChangesItemProcessed +
+                ", pollRecentChangesNamespaces=" + pollRecentChangesNamespaces +
+                '}';
     }
 }

@@ -25,7 +25,13 @@ public class CreateOrUpdatePageSegmentVoice implements TransactionWithQuery<Root
     public CreateOrUpdatePageSegmentVoice() {
     }
 
-    public CreateOrUpdatePageSegmentVoice(String consumerUrl, String title, byte[] hash, long synthesizedRevision, String voice) {
+    public CreateOrUpdatePageSegmentVoice(
+            String consumerUrl,
+            String title,
+            byte[] hash,
+            long synthesizedRevision,
+            String voice
+    ) {
         this.consumerUrl = consumerUrl;
         this.title = title;
         this.hash = hash;

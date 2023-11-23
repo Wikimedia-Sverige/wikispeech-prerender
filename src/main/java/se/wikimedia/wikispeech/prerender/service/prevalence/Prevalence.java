@@ -5,18 +5,20 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.prevayler.*;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import se.wikimedia.wikispeech.prerender.service.AbstractLifecycle;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
-import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateWiki;
-import se.wikimedia.wikispeech.prerender.site.SwedishWikipedia;
 
 import java.io.File;
-import java.time.Duration;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class Prevalence extends AbstractLifecycle implements SmartLifecycle {
@@ -96,5 +98,33 @@ public class Prevalence extends AbstractLifecycle implements SmartLifecycle {
 //        execute(createWiki);
     }
 
+    private static final Pattern journalFileNamePattern = Pattern.compile("(\\d+)\\.journal");
+
+    @Scheduled(fixedDelay = 7, initialDelay = 2, timeUnit = TimeUnit.DAYS)
+    public void snapshotAndRemoveJournals() throws Exception {
+        File snapshot = prevalyer.takeSnapshot();
+        Long currentJournal = null;
+        for (File file : snapshot.getParentFile().listFiles()) {
+            if (!file.equals(snapshot)) {
+                Matcher matcher = journalFileNamePattern.matcher(file.getName());
+                if (matcher.matches()) {
+                    long journalIdentity = Long.parseLong(matcher.group(1));
+                    if (currentJournal == null || journalIdentity > currentJournal) {
+                        currentJournal = journalIdentity;
+                    } else {
+                        log.info("Removing {}", file.getName());
+                        file.delete();
+                    }
+                } else {
+                    log.info("Removing {}", file.getName());
+                    file.delete();
+                }
+            }
+        }
+    }
+
+    public void takeSnapshot() throws Exception {
+        prevalyer.takeSnapshot();
+    }
 
 }

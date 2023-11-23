@@ -12,11 +12,14 @@ import se.wikimedia.wikispeech.prerender.mediawiki.PageApi;
 import se.wikimedia.wikispeech.prerender.mediawiki.WikispeechApi;
 import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.query.*;
-import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateSegmentedPage;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreatePageSegment;
+import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.CreateSegmentedPage;
 import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.FinalizedPageSegmented;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -188,6 +191,10 @@ public class SegmentService extends ExecutorService implements SmartLifecycle {
                 )
         );
 
+    }
+
+    public void flushSegments() {
+        // todo delete old segments that has not been touched for a very long time.
     }
 
 }

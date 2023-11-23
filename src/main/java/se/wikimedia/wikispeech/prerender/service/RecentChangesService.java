@@ -1,5 +1,6 @@
 package se.wikimedia.wikispeech.prerender.service;
 
+import lombok.Data;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.prevayler.Query;
@@ -16,7 +17,10 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.transaction.SetWikiT
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
@@ -29,17 +33,22 @@ public class RecentChangesService extends ExecutorService implements SmartLifecy
     private final Prevalence prevalence;
     private final SegmentService segmentService;
     private final RecentChangesApi recentChangesApi;
+    private final PriorityService priorityService;
 
     private final Map<String, RecentChangesApi.Item> lastProcessedRecentChangesItemByConsumerUrl;
 
+    @Autowired
     public RecentChangesService(
-            @Autowired Prevalence prevalence,
-            @Autowired SegmentService segmentService,
-            @Autowired RecentChangesApi recentChangesApi
+            Prevalence prevalence,
+            SegmentService segmentService,
+            RecentChangesApi recentChangesApi,
+            PriorityService priorityService
+
     ) {
         this.prevalence = prevalence;
         this.segmentService = segmentService;
         this.recentChangesApi = recentChangesApi;
+        this.priorityService = priorityService;
 
         this.lastProcessedRecentChangesItemByConsumerUrl = new ConcurrentHashMap<>();
     }
@@ -115,6 +124,9 @@ public class RecentChangesService extends ExecutorService implements SmartLifecy
 
         RecentChangesApi.Item lastProcessedRecentChangesItemAtStart = lastProcessedRecentChangesItemByConsumerUrl.get(wiki.getConsumerUrl());
 
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime future = now.plus(Duration.ofDays(1));
+
         recentChangesApi.get(
                 wiki.getConsumerUrl(),
                 wiki.getPollRecentChangesNamespaces(),
@@ -146,6 +158,16 @@ public class RecentChangesService extends ExecutorService implements SmartLifecy
                                         recentlyChanged.getTitle()
                                 ) ) {
                                     log.debug("Queued command to segment based on {} at {}", recentlyChanged, wiki.getName());
+
+                                    // todo: If change was made by bot, then set low multiplier. Perhaps 0.5f?
+//                                    priorityService.put(
+//                                            new ConsumerUrlAndTitle(wiki.getConsumerUrl(), recentlyChanged.getTitle()),
+//                                            new PriorityService.PagePrioritySetting(
+//                                                    now, future, 0.5f,
+//                                                    wiki.getConsumerUrl(), recentlyChanged.getTitle()
+//                                            )
+//                                    );
+
                                 } else {
                                     log.trace("The queue already contains a command to segment based on {} at {}", recentlyChanged, wiki.getName());
                                 }
@@ -173,6 +195,17 @@ public class RecentChangesService extends ExecutorService implements SmartLifecy
         } else {
             log.info("No new recent changes at {}", wiki.getName());
             return false;
+        }
+    }
+
+    @Data
+    private static class ConsumerUrlAndTitle {
+        private String consumerUrl;
+        private String title;
+
+        public ConsumerUrlAndTitle(String consumerUrl, String title) {
+            this.consumerUrl = consumerUrl;
+            this.title = title;
         }
     }
 

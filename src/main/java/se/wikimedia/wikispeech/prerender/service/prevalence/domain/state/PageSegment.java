@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Data
@@ -16,4 +17,11 @@ public class PageSegment implements Serializable {
     private int lowestIndexAtSegmentation;
     private List<PageSegmentVoice> synthesizedVoices = new ArrayList<>();
 
+    @Override
+    public String toString() {
+        return "PageSegment{" +
+                "hash=" + Arrays.toString(hash) +
+                ", lowestIndexAtSegmentation=" + lowestIndexAtSegmentation +
+                '}';
+    }
 }

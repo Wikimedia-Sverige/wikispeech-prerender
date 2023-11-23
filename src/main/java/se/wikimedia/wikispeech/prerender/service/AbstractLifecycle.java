@@ -3,6 +3,7 @@ package se.wikimedia.wikispeech.prerender.service;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.context.Lifecycle;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractLifecycle implements Lifecycle {

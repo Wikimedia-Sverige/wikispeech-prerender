@@ -12,7 +12,10 @@ import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.PageSeg
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -58,10 +61,11 @@ public class PriorityService {
 
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
     public void expunge() {
-        log.info("Expunging...");
+        log.info("Expunging priorities...");
         for (Map.Entry<Object, PrioritySetting> entry : new HashSet<>(settings.entrySet())) {
             if (entry.getValue().getTo().isBefore(LocalDateTime.now())) {
                 settings.remove(entry.getKey());
+                log.info("Expunged {}", entry);
             }
         }
     }
@@ -97,7 +101,7 @@ public class PriorityService {
         public PagePrioritySetting() {
         }
 
-        public PagePrioritySetting(LocalDateTime from, LocalDateTime to, float multiplier, String consumerUrl, String title) {
+        public PagePrioritySetting(LocalDateTime from, LocalDateTime to, double multiplier, String consumerUrl, String title) {
             super(from, to, multiplier);
             this.consumerUrl = consumerUrl;
             this.title = title;
@@ -136,20 +140,6 @@ public class PriorityService {
             priority.getExplanations().add(new Explanation(1D, "Starting value"));
         }
 
-        value *= candidateToBeSynthesized.getPage().getPriority();
-        if (explain) {
-            priority.getExplanations().add(new Explanation(value, "multiplied with page priority " + candidateToBeSynthesized.getPage().getPriority()));
-        }
-
-        if (candidateToBeSynthesized.getPageSegmentVoice() != null
-                && candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts() != null
-                && !candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().isEmpty()) {
-            value /= candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size() + 1D;
-            if (explain) {
-                priority.getExplanations().add(new Explanation(value, "Divided with number of failures " + candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size()));
-            }
-        }
-
         // lower segment index in page is slightly more prioritized
         value += 1D - Math.min(1000, candidateToBeSynthesized.getPageSegment().getLowestIndexAtSegmentation()) / 1000D;
         if (explain) {
@@ -161,6 +151,20 @@ public class PriorityService {
             value += 0.001D;
             if (explain) {
                 priority.getExplanations().add(new Explanation(value, "Added never previously synthesized priority."));
+            }
+        }
+
+        value *= candidateToBeSynthesized.getPage().getPriority();
+        if (explain) {
+            priority.getExplanations().add(new Explanation(value, "Multiplied with page priority " + candidateToBeSynthesized.getPage().getPriority()));
+        }
+
+        if (candidateToBeSynthesized.getPageSegmentVoice() != null
+                && candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts() != null
+                && !candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().isEmpty()) {
+            value /= candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size() + 1D;
+            if (explain) {
+                priority.getExplanations().add(new Explanation(value, "Divided with number of failures " + candidateToBeSynthesized.getPageSegmentVoice().getFailedAttempts().size()));
             }
         }
 

@@ -2,11 +2,11 @@ package se.wikimedia.wikispeech.prerender.service.prevalence.transaction;
 
 import lombok.Data;
 import org.prevayler.TransactionWithQuery;
-import se.wikimedia.wikispeech.prerender.service.prevalence.Prevalence;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.Root;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Page;
 import se.wikimedia.wikispeech.prerender.service.prevalence.domain.state.Wiki;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -18,16 +18,18 @@ public class CreateNonSegmentedPage implements TransactionWithQuery<Root, Page> 
     private String title;
     private String languageAtSegmentation;
     private long revisionAtSegmentation;
+    private LocalDateTime timestampDontFlushUntil;
     private float priority = 1F;
 
     public CreateNonSegmentedPage() {
     }
 
-    public CreateNonSegmentedPage(String consumerUrl, String title, String languageAtSegmentation, long revisionAtSegmentation, float priority) {
+    public CreateNonSegmentedPage(String consumerUrl, String title, String languageAtSegmentation, long revisionAtSegmentation, LocalDateTime timestampDontFlushUntil, float priority) {
         this.consumerUrl = consumerUrl;
         this.title = title;
         this.languageAtSegmentation = languageAtSegmentation;
         this.revisionAtSegmentation = revisionAtSegmentation;
+        this.timestampDontFlushUntil = timestampDontFlushUntil;
         this.priority = priority;
     }
 
@@ -41,6 +43,7 @@ public class CreateNonSegmentedPage implements TransactionWithQuery<Root, Page> 
         page.setTitle(title);
         page.setRevisionAtSegmentation(revisionAtSegmentation);
         page.setLanguageAtSegmentation(root.getInternedLanguages().intern(languageAtSegmentation));
+        page.setTimestampDontFlushUntil(timestampDontFlushUntil);
         page.setPriority(priority);
         wiki.getPagesByTitle().put(title, page);
         return page;
